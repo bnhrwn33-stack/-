@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>היקום הקולנועי | MCU בעברית</title>
+<meta name="description" content="כל הסרטים, כל הפאזות, סדר הצפייה המושלם ליקום הקולנועי של מארוול - הכל במקום אחד, בעברית.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⭐</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div id="cursor-glow"></div>
+
+<header class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a href="#top" class="logo">
+      <span class="logo-icon">★</span>
+      <span class="logo-text">היקום<span class="accent">הקולנועי</span></span>
+    </a>
+    <button class="burger" id="burger" aria-label="תפריט">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav-links" id="navLinks">
+      <a href="#top" class="active">בית</a>
+      <a href="#order">סדר צפייה</a>
+      <a href="#phases">פאזות</a>
+      <a href="#heroes">גיבורים</a>
+      <a href="#trivia">טריוויה</a>
+      <a href="#stats">סטטיסטיקות</a>
+    </nav>
+  </div>
+</header>
+
+<section id="top" class="hero">
+  <div class="hero-bg-glow"></div>
+  <div class="hero-particles" id="heroParticles"></div>
+  <div class="hero-content">
+    <p class="eyebrow reveal">6 פאזות · 30+ סרטים · יקום אחד</p>
+    <h1 class="hero-title reveal">
+      <span class="line line1">היקום</span>
+      <span class="line line2">הקולנועי</span>
+    </h1>
+    <p class="hero-sub reveal">כל מה שצריך לדעת כדי לצפות ביקום של מארוול נכון - בלי לפספס כלום, ובלי ספוילרים מיותרים.</p>
+    <div class="hero-cta reveal">
+      <a href="#order" class="btn btn-primary">איפה מתחילים? <span>↓</span></a>
+      <a href="#phases" class="btn btn-ghost">כל הפאזות</a>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>גללו למטה</span>
+    <div class="scroll-mouse"><div class="scroll-dot"></div></div>
+  </div>
+</section>
+
+<section class="counter-strip reveal-section">
+  <div class="counter-inner">
+    <div class="counter-item">
+      <p class="counter-label">חלפו מאז "אנדגיים" (26.4.2019)</p>
+      <div class="counter-grid" id="endgameCounter">
+        <div class="counter-box"><span id="c-days">0</span><small>ימים</small></div>
+        <div class="counter-box"><span id="c-hours">0</span><small>שעות</small></div>
+        <div class="counter-box"><span id="c-min">0</span><small>דקות</small></div>
+        <div class="counter-box"><span id="c-sec">0</span><small>שניות</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="order" class="section reveal-section">
+  <div class="section-inner">
+    <h2 class="section-title">סדר <span class="accent">צפייה</span></h2>
+    <p class="section-desc">שני סדרים אפשריים - סדר שחרור (איך שיצא בקולנוע) וסדר כרונולוגי (איך שהעלילה קורית בפועל). לרוב מומלץ להתחיל בסדר שחרור.</p>
+
+    <div class="toggle-wrap">
+      <button class="toggle-btn active" data-mode="release">סדר שחרור</button>
+      <button class="toggle-btn" data-mode="chrono">סדר כרונולוגי</button>
+    </div>
+
+    <div class="timeline" id="timeline"></div>
+  </div>
+</section>
+
+<section id="phases" class="section section-alt reveal-section">
+  <div class="section-inner">
+    <h2 class="section-title">כל ה<span class="accent">פאזות</span></h2>
+    <p class="section-desc">היקום מחולק ל"סאגות" ו"פאזות" - כל פאזה מקבצת סרטים וסדרות סביב עלילת-על משותפת.</p>
+
+    <div class="phase-tabs" id="phaseTabs"></div>
+    <div class="phase-content" id="phaseContent"></div>
+  </div>
+</section>
+
+<section id="heroes" class="section reveal-section">
+  <div class="section-inner">
+    <h2 class="section-title">כרטיסי <span class="accent">גיבורים</span></h2>
+    <p class="section-desc">לחצו על כרטיס כדי להפוך אותו ולראות סטטיסטיקות (מדד אוהדים, לא רשמי כמובן 😉)</p>
+    <div class="hero-grid" id="heroGrid"></div>
+  </div>
+</section>
+
+<section id="trivia" class="section section-alt reveal-section">
+  <div class="section-inner">
+    <h2 class="section-title">טריוויה <span class="accent">ועובדות</span></h2>
+    <p class="section-desc">לחצו על כרטיסייה כדי לגלות עובדה</p>
+    <div class="trivia-grid" id="triviaGrid"></div>
+  </div>
+</section>
+
+<section id="stats" class="section reveal-section">
+  <div class="section-inner">
+    <h2 class="section-title">היקום ב<span class="accent">מספרים</span></h2>
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <p class="footer-logo"><span class="logo-icon">★</span> היקום הקולנועי</p>
+    <p class="footer-note">אתר מעריצים בעברית · לא קשור רשמית ל-Marvel Studios / Disney</p>
+    <button class="to-top" id="toTop">חזרה למעלה ↑</button>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>
