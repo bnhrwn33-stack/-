@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הנבלים הגדולים | היקום הקולנועי</title>
+<meta name="description" content="עשרת הנבלים הכי איקוניים ביקום הקולנועי של מארוול - תאנוס, לוקי, אולטרון ועוד, עם דירוגי איום.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⭐</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+<div id="cursor-glow"></div>
+
+<header class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <span class="logo-icon">★</span>
+      <span class="logo-text">היקום<span class="accent">הקולנועי</span></span>
+    </a>
+    <button class="burger" id="burger" aria-label="תפריט">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav-links" id="navLinks">
+      <a href="index.html#top">בית</a>
+      <a href="index.html#order">סדר צפייה</a>
+      <a href="index.html#phases">פאזות</a>
+      <a href="index.html#heroes">גיבורים</a>
+      <a href="villains.html" class="active">נבלים</a>
+      <a href="movies.html">קטלוג סרטים</a>
+      <a href="quiz.html">בחן את עצמך</a>
+      <a href="index.html#trivia">טריוויה</a>
+    </nav>
+  </div>
+</header>
+
+<section class="page-hero">
+  <div class="page-hero-bg"></div>
+  <p class="page-hero-eyebrow">10 נבלים · דירוגי איום</p>
+  <h1>הנבלים <span class="accent">הגדולים</span></h1>
+  <p>בלי נבל טוב אין גיבור טוב. הכירו את היריבים הכי איקוניים, המסוכנים והמורכבים של היקום.</p>
+  <a href="index.html" class="back-home">→ חזרה לדף הבית</a>
+</section>
+
+<section class="section reveal-section">
+  <div class="section-inner">
+    <div class="villain-grid" id="villainGrid"></div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <p class="footer-logo"><span class="logo-icon">★</span> היקום הקולנועי</p>
+    <p class="footer-note">אתר מעריצים בעברית · לא קשור רשמית ל-Marvel Studios / Disney</p>
+    <button class="to-top" id="toTop">חזרה למעלה ↑</button>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/common.js"></script>
+<script src="js/villains.js"></script>
+</body>
+</html>
