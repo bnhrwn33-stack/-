@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>איזה גיבור מארוול אתה? | היקום הקולנועי</title>
-<meta name="description" content="קוויז קצר וכיפי - גלו איזה גיבור מהיקום הקולנועי של מארוול הכי מתאים לאישיות שלכם.">
+<title>עדכונים | היקום הקולנועי</title>
+<meta name="description" content="ציר עדכונים ואבני דרך של היקום הקולנועי של מארוול - מבכורות ועד הכרזות.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800;900&family=Bebas+Neue&display=swap" rel="stylesheet">
@@ -33,24 +33,28 @@
       <a href="villains.html">נבלים</a>
       <a href="movies.html">קטלוג סרטים</a>
       <a href="articles.html">מאמרים</a>
-      <a href="updates.html">עדכונים</a>
-      <a href="quiz.html" class="active">בחן את עצמך</a>
+      <a href="updates.html" class="active">עדכונים</a>
+      <a href="quiz.html">בחן את עצמך</a>
     </nav>
   </div>
 </header>
 
 <section class="page-hero">
   <div class="page-hero-bg"></div>
-  <p class="page-hero-eyebrow">5 שאלות · תשובה אחת</p>
-  <h1>איזה גיבור <span class="accent">אתה</span>?</h1>
-  <p>ענו על כמה שאלות קצרות וגלו איזו דמות מהיקום הכי מתאימה לאישיות שלכם.</p>
+  <p class="page-hero-eyebrow">ציר עדכונים · אבני דרך</p>
+  <h1>עד<span class="accent">כונים</span></h1>
+  <p>מהבכורה הראשונה של איירון מן ועד פאזה 6 - כל אבני הדרך הגדולות של היקום, לפי סדר כרונולוגי.</p>
   <a href="index.html" class="back-home">→ חזרה לדף הבית</a>
 </section>
 
 <section class="section reveal-section">
-  <div class="section-inner quiz-wrap">
-    <div class="quiz-progress"><div class="quiz-progress-fill" id="quizProgress"></div></div>
-    <div class="quiz-card" id="quizCard"></div>
+  <div class="section-inner">
+    <span class="live-badge"><span class="live-dot"></span> עמוד עדכונים</span>
+    <p class="updates-note">
+      חשוב לדעת: זהו עמוד סטטי שמרכז אבני דרך ועדכונים על היקום, והוא מתעדכן <strong>ידנית</strong> - לא פיד חדשות אוטומטי בזמן אמת.
+      חיבור לפיד חדשות חי אמיתי דורש שרת/API חיצוני, מה שהאתר הזה (מארח סטטי) לא כולל כרגע.
+    </p>
+    <div class="updates-feed" id="updatesFeed"></div>
   </div>
 </section>
 
@@ -64,6 +68,6 @@
 
 <script src="js/data.js"></script>
 <script src="js/common.js"></script>
-<script src="js/quiz.js"></script>
+<script src="js/updates.js"></script>
 </body>
 </html>
