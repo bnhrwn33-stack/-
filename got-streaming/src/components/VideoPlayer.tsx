@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { Episode } from '../types';
 import { useLibrary } from '../context/LibraryContext';
 import {
-  CheckIcon, FullscreenIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SpeedIcon, VolumeIcon,
+  CheckIcon, CloseIcon, FullscreenIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SpeedIcon, VolumeIcon,
 } from './Icons';
 import { useUi } from '../context/UiContext';
 
@@ -11,9 +11,13 @@ interface Props {
   episode: Episode;
   onNext?: () => void;
   onPrev?: () => void;
+  nextTitle?: string;
 }
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const INTRO_SECONDS = 90; // אורך משוער של רצף הפתיחה
+const CREDITS_SECONDS = 75; // חלון "כתוביות סיום" בסוף הפרק
+const AUTO_NEXT_SECONDS = 8; // ספירה לאחור למעבר אוטומטי
 
 function fmt(t: number): string {
   if (!isFinite(t)) return '0:00';
@@ -25,14 +29,15 @@ function fmt(t: number): string {
     : `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
+export default function VideoPlayer({ episode, onNext, onPrev, nextTitle }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>();
-  const { progress, reportProgress, toggleWatched, watched } = useLibrary();
-  const { cinemaMode, setCinemaMode } = useUi();
+  const { progress, reportProgress, toggleWatched, watched, bookmarks, addBookmark, removeBookmark } = useLibrary();
+  const { cinemaMode, setCinemaMode, theaterMode, setTheaterMode, prefs } = useUi();
 
   const [sourceIdx, setSourceIdx] = useState(0);
+  const [qualityAuto, setQualityAuto] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -41,23 +46,37 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
   const [muted, setMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [showControls, setShowControls] = useState(true);
-  const [menu, setMenu] = useState<null | 'speed' | 'quality'>(null);
+  const [menu, setMenu] = useState<null | 'speed' | 'quality' | 'bookmarks'>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [resumeAt, setResumeAt] = useState<number | null>(null);
+  const [autoNextLeft, setAutoNextLeft] = useState<number | null>(null);
 
   const source = episode.sources[sourceIdx] ?? episode.sources[0];
   const hasVideo = episode.sources.length > 0;
+  const epBookmarks = bookmarks[episode.key] ?? [];
 
   // איפוס במעבר פרק
   useEffect(() => {
     setSourceIdx(0);
+    setQualityAuto(true);
     setFailed(false);
     setLoading(true);
     setTime(0);
     setDuration(0);
+    setAutoNextLeft(null);
     const saved = progress[episode.key];
-    setResumeAt(saved && saved.time > 30 && saved.time < saved.duration * 0.95 ? saved.time : null);
+    const hasResumePoint = saved && saved.time > 30 && saved.time < saved.duration * 0.95;
+    if (hasResumePoint && prefs.autoResume) {
+      // המשך צפייה אוטומטי — בלי הצעה, ממשיכים ישר
+      setResumeAt(null);
+      setTimeout(() => {
+        const v = videoRef.current;
+        if (v) { v.currentTime = saved!.time; v.play().catch(() => {}); }
+      }, 200);
+    } else {
+      setResumeAt(hasResumePoint ? saved!.time : null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [episode.key]);
 
@@ -78,7 +97,6 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
       const v = videoRef.current;
       if (v && !v.paused && v.duration > 0) {
         reportProgress(episode.key, v.currentTime, v.duration);
-        // סימון אוטומטי כ"נצפה" אחרי 90%
         if (v.currentTime / v.duration > 0.9 && !watched.includes(episode.key)) {
           toggleWatched(episode.key);
         }
@@ -114,6 +132,38 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
       else await v.requestPictureInPicture();
     } catch { /* הדפדפן סירב */ }
   }, []);
+
+  const skipIntro = useCallback(() => {
+    const v = videoRef.current;
+    if (v) v.currentTime = Math.min(INTRO_SECONDS, (v.duration || INTRO_SECONDS) - 1);
+    poke();
+  }, [poke]);
+
+  /** סיום פרק: מסמן כנצפה ומפעיל ספירה לאחור למעבר הבא (אם מופעל בהעדפות) */
+  const finishEpisode = useCallback(() => {
+    if (!watched.includes(episode.key)) toggleWatched(episode.key);
+    if (onNext && prefs.autoNext) setAutoNextLeft(AUTO_NEXT_SECONDS);
+  }, [episode.key, watched, toggleWatched, onNext, prefs.autoNext]);
+
+  const skipCredits = useCallback(() => {
+    videoRef.current?.pause();
+    finishEpisode();
+  }, [finishEpisode]);
+
+  const quickBookmark = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    addBookmark(episode.key, v.currentTime, fmt(v.currentTime));
+    poke();
+  }, [addBookmark, episode.key, poke]);
+
+  // ספירה לאחור למעבר אוטומטי
+  useEffect(() => {
+    if (autoNextLeft === null) return;
+    if (autoNextLeft <= 0) { onNext?.(); return; }
+    const t = setTimeout(() => setAutoNextLeft((n) => (n === null ? null : n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [autoNextLeft, onNext]);
 
   // קיצורי מקלדת
   useEffect(() => {
@@ -163,14 +213,26 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
         case 'c':
           setCinemaMode(!cinemaMode);
           break;
+        case 't':
+          setTheaterMode(!theaterMode);
+          break;
+        case 'b':
+          quickBookmark();
+          break;
+        case 's':
+          if (time < INTRO_SECONDS) skipIntro();
+          break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePlay, seekBy, toggleFullscreen, onNext, onPrev, togglePip, cinemaMode, setCinemaMode]);
+  }, [
+    togglePlay, seekBy, toggleFullscreen, onNext, onPrev, togglePip, cinemaMode, setCinemaMode,
+    theaterMode, setTheaterMode, quickBookmark, skipIntro, time,
+  ]);
 
-  // יציאה ממצב קולנוע כשעוזבים את העמוד
-  useEffect(() => () => setCinemaMode(false), [setCinemaMode]);
+  // יציאה ממצב קולנוע/תיאטרון כשעוזבים את העמוד
+  useEffect(() => () => { setCinemaMode(false); setTheaterMode(false); }, [setCinemaMode, setTheaterMode]);
 
   if (!hasVideo) {
     return (
@@ -183,7 +245,6 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
     );
   }
 
-  // קובץ מקומי בפורמט שהדפדפן לא מנגן (למשל MKV) — אין נגן iframe לגיבוי
   const isLocal = source.streamUrl.startsWith('blob:');
   if (failed && isLocal) {
     return (
@@ -200,7 +261,6 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
     );
   }
 
-  // גיבוי: נגן ה-iframe של Drive כשההזרמה הישירה נכשלת
   if (failed && source.previewUrl) {
     return (
       <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
@@ -220,12 +280,14 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
 
   const pct = duration > 0 ? (time / duration) * 100 : 0;
   const bufPct = duration > 0 ? (buffered / duration) * 100 : 0;
+  const showSkipIntro = time > 2 && time < INTRO_SECONDS && duration > INTRO_SECONDS * 1.5;
+  const showSkipCredits = duration > 0 && duration - time <= CREDITS_SECONDS && duration - time > 1 && autoNextLeft === null;
 
   return (
     <div
       ref={wrapRef}
       dir="ltr"
-      className={`relative aspect-video rounded-xl overflow-hidden bg-black group/player select-none ${cinemaMode ? 'z-50' : ''}`}
+      className={`relative aspect-video rounded-xl overflow-hidden bg-black group/player select-none ${cinemaMode || theaterMode ? 'z-50' : ''}`}
       onMouseMove={poke}
       onMouseLeave={() => playing && setShowControls(false)}
     >
@@ -246,10 +308,7 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
         onWaiting={() => setLoading(true)}
         onPlaying={() => setLoading(false)}
         onError={() => setFailed(true)}
-        onEnded={() => {
-          toggleWatched(episode.key);
-          onNext?.();
-        }}
+        onEnded={finishEpisode}
         onProgress={(e) => {
           const v = e.currentTarget;
           if (v.buffered.length) setBuffered(v.buffered.end(v.buffered.length - 1));
@@ -267,6 +326,36 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
           >
             <div className="w-14 h-14 rounded-full border-[3px] border-gold-700/40 border-t-gold-400 animate-spin" />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* דילוג על הפתיח */}
+      <AnimatePresence>
+        {showSkipIntro && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            onClick={skipIntro}
+            className="absolute bottom-24 left-4 z-10 glass rounded-lg px-4 py-2.5 text-sm text-white font-medium hover:bg-white/15 transition-colors flex items-center gap-2"
+          >
+            דלג על הפתיח <span className="text-steel-400 text-xs">(S)</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* דילוג על כתוביות הסיום */}
+      <AnimatePresence>
+        {showSkipCredits && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            onClick={skipCredits}
+            className="absolute bottom-24 left-4 z-10 glass rounded-lg px-4 py-2.5 text-sm text-white font-medium hover:bg-white/15 transition-colors flex items-center gap-2"
+          >
+            דלג על כתוביות הסיום {onNext ? '— לפרק הבא' : ''}
+          </motion.button>
         )}
       </AnimatePresence>
 
@@ -291,19 +380,48 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
             >
               המשך
             </button>
-            <button
-              className="btn-ghost !px-4 !py-1.5 text-sm"
-              onClick={() => setResumeAt(null)}
-            >
+            <button className="btn-ghost !px-4 !py-1.5 text-sm" onClick={() => setResumeAt(null)}>
               מההתחלה
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* ספירה לאחור למעבר אוטומטי לפרק הבא */}
+      <AnimatePresence>
+        {autoNextLeft !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            dir="rtl"
+            className="absolute inset-0 z-20 bg-ink-950/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-center px-6"
+          >
+            <div className="relative w-16 h-16">
+              <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
+                <circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />
+                <circle
+                  cx="20" cy="20" r="17" fill="none" stroke="rgb(var(--gold-400-rgb))" strokeWidth="4" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 17}
+                  strokeDashoffset={2 * Math.PI * 17 * (1 - autoNextLeft / AUTO_NEXT_SECONDS)}
+                  style={{ transition: 'stroke-dashoffset 1s linear' }}
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-white">{autoNextLeft}</span>
+            </div>
+            <p className="text-steel-300 text-sm">מפעיל את הפרק הבא בעוד {autoNextLeft} שניות</p>
+            {nextTitle && <p className="text-white font-bold">{nextTitle}</p>}
+            <div className="flex gap-2">
+              <button onClick={() => onNext?.()} className="btn-gold !px-5 !py-2 text-sm">הפעל עכשיו</button>
+              <button onClick={() => setAutoNextLeft(null)} className="btn-ghost !px-5 !py-2 text-sm">ביטול</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* פקדים */}
       <AnimatePresence>
-        {showControls && (
+        {showControls && autoNextLeft === null && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -317,6 +435,15 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
                 <div className="absolute inset-y-0 left-0 bg-white/20" style={{ width: `${bufPct}%` }} />
                 <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-gold-600 to-gold-400" style={{ width: `${pct}%` }} />
               </div>
+              {/* סמני סימניות */}
+              {duration > 0 && epBookmarks.map((b) => (
+                <div
+                  key={b.ts}
+                  className="absolute w-[3px] h-3 bg-gold-300 rounded-full -translate-x-1/2 pointer-events-none"
+                  style={{ left: `${(b.time / duration) * 100}%` }}
+                  title={b.label}
+                />
+              ))}
               <input
                 type="range"
                 className="seek absolute inset-x-0 w-full bg-transparent"
@@ -348,7 +475,6 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
                 </button>
               )}
 
-              {/* ווליום */}
               <div className="flex items-center gap-1.5 group/vol">
                 <button
                   onClick={() => {
@@ -383,6 +509,51 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
 
               <div className="flex-1" />
 
+              {/* סימניות */}
+              <div className="relative">
+                <button
+                  onClick={quickBookmark}
+                  title="הוסף סימנייה כאן (B)"
+                  className="p-2 rounded hover:bg-white/15 transition-colors"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 21 12 16l-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                  </svg>
+                </button>
+                {epBookmarks.length > 0 && (
+                  <button
+                    onClick={() => setMenu(menu === 'bookmarks' ? null : 'bookmarks')}
+                    className="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full bg-gold-500 text-ink-950 text-[9px] font-bold flex items-center justify-center"
+                  >
+                    {epBookmarks.length}
+                  </button>
+                )}
+                {menu === 'bookmarks' && epBookmarks.length > 0 && (
+                  <div className="absolute bottom-11 right-0 glass rounded-lg py-1.5 min-w-[150px] shadow-card max-h-52 overflow-y-auto">
+                    {epBookmarks.map((b) => (
+                      <div key={b.ts} className="flex items-center gap-1 px-2 group/bm">
+                        <button
+                          onClick={() => {
+                            const v = videoRef.current;
+                            if (v) { v.currentTime = b.time; v.play(); }
+                            setMenu(null);
+                          }}
+                          className="flex-1 py-1.5 text-xs text-left text-steel-200 hover:text-gold-400 transition-colors"
+                        >
+                          🔖 {b.label}
+                        </button>
+                        <button
+                          onClick={() => removeBookmark(episode.key, b.ts)}
+                          className="opacity-0 group-hover/bm:opacity-100 text-steel-500 hover:text-rose-400 transition-opacity p-1"
+                        >
+                          <CloseIcon width={11} height={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* מהירות */}
               <div className="relative">
                 <button
@@ -412,6 +583,17 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
                 )}
               </div>
 
+              {/* מצב תיאטרון */}
+              <button
+                onClick={() => setTheaterMode(!theaterMode)}
+                title="מצב תיאטרון — נגן רחב (T)"
+                className={`p-2 rounded hover:bg-white/15 transition-colors ${theaterMode ? 'text-gold-400' : ''}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="1" y="7" width="22" height="10" rx="2" />
+                </svg>
+              </button>
+
               {/* מצב קולנוע */}
               <button
                 onClick={() => setCinemaMode(!cinemaMode)}
@@ -424,7 +606,6 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
                 </svg>
               </button>
 
-              {/* Picture in Picture */}
               <button onClick={togglePip} title="מסך צף — Picture in Picture (I)" className="p-2 rounded hover:bg-white/15 transition-colors">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -433,39 +614,43 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
               </button>
 
               {/* איכות */}
-              {episode.sources.length > 1 && (
-                <div className="relative">
-                  <button
-                    onClick={() => setMenu(menu === 'quality' ? null : 'quality')}
-                    title="איכות"
-                    className="p-2 rounded hover:bg-white/15 transition-colors text-xs font-semibold"
-                  >
-                    {source.label}
-                  </button>
-                  {menu === 'quality' && (
-                    <div className="absolute bottom-11 right-0 glass rounded-lg py-1.5 min-w-[100px] shadow-card">
-                      {episode.sources.map((s, i) => (
-                        <button
-                          key={s.id}
-                          onClick={() => {
-                            const t = videoRef.current?.currentTime ?? 0;
-                            setSourceIdx(i);
-                            setMenu(null);
-                            // שחזור מיקום אחרי החלפת מקור
-                            setTimeout(() => {
-                              const v = videoRef.current;
-                              if (v) { v.currentTime = t; v.play(); }
-                            }, 120);
-                          }}
-                          className={`w-full px-4 py-1.5 text-xs text-left hover:bg-white/10 transition-colors ${i === sourceIdx ? 'text-gold-400' : 'text-steel-200'}`}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="relative">
+                <button
+                  onClick={() => setMenu(menu === 'quality' ? null : 'quality')}
+                  title="איכות"
+                  className="p-2 rounded hover:bg-white/15 transition-colors text-xs font-semibold"
+                >
+                  {qualityAuto ? 'Auto' : source.label}
+                </button>
+                {menu === 'quality' && (
+                  <div className="absolute bottom-11 right-0 glass rounded-lg py-1.5 min-w-[100px] shadow-card">
+                    <button
+                      onClick={() => { setQualityAuto(true); setSourceIdx(0); setMenu(null); }}
+                      className={`w-full px-4 py-1.5 text-xs text-left hover:bg-white/10 transition-colors ${qualityAuto ? 'text-gold-400' : 'text-steel-200'}`}
+                    >
+                      {qualityAuto && <CheckIcon width={12} height={12} className="inline mr-1" />} Auto
+                    </button>
+                    {episode.sources.map((s, i) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          const t = videoRef.current?.currentTime ?? 0;
+                          setSourceIdx(i);
+                          setQualityAuto(false);
+                          setMenu(null);
+                          setTimeout(() => {
+                            const v = videoRef.current;
+                            if (v) { v.currentTime = t; v.play(); }
+                          }, 120);
+                        }}
+                        className={`w-full px-4 py-1.5 text-xs text-left hover:bg-white/10 transition-colors ${!qualityAuto && i === sourceIdx ? 'text-gold-400' : 'text-steel-200'}`}
+                      >
+                        {!qualityAuto && i === sourceIdx && <CheckIcon width={12} height={12} className="inline mr-1" />} {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <button onClick={toggleFullscreen} title="מסך מלא (F)" className="p-2 rounded hover:bg-white/15 transition-colors">
                 <FullscreenIcon />

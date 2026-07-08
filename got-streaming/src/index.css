@@ -4,6 +4,12 @@
 
 :root {
   color-scheme: dark;
+  /* ברירת מחדל (accent "זהב") — UiContext דורס בזמן ריצה לפי בחירת המשתמש */
+  --gold-300-rgb: 240 217 154;
+  --gold-400-rgb: 227 196 110;
+  --gold-500-rgb: 201 168 76;
+  --gold-600-rgb: 168 134 58;
+  --gold-700-rgb: 125 98 41;
 }
 
 html {
@@ -47,8 +53,16 @@ html.custom-cursor summary {
 }
 
 ::selection {
-  background: rgba(201, 168, 76, 0.35);
+  background: rgb(var(--gold-500-rgb) / 0.35);
   color: #fff;
+}
+
+/* מצב ילדים — פקדים גדולים ורגועים יותר, בלי אפקטים עוצמתיים */
+html.kids-mode button, html.kids-mode a.btn-gold, html.kids-mode a.btn-ghost {
+  min-height: 44px;
+}
+html.kids-mode .btn-gold, html.kids-mode .btn-ghost {
+  @apply text-base px-7 py-3.5;
 }
 
 /* פס גלילה מעוצב */
@@ -73,7 +87,12 @@ html.custom-cursor summary {
     @apply bg-white/[0.04] backdrop-blur-xl border border-white/[0.08];
   }
   .gold-text {
-    background: linear-gradient(180deg, #f0d99a 0%, #c9a84c 55%, #a8863a 100%);
+    background: linear-gradient(
+      180deg,
+      rgb(var(--gold-300-rgb)) 0%,
+      rgb(var(--gold-500-rgb)) 55%,
+      rgb(var(--gold-600-rgb)) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -81,7 +100,7 @@ html.custom-cursor summary {
   .btn-gold {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold text-ink-950
       transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98] shadow-glow;
-    background: linear-gradient(180deg, #f0d99a, #c9a84c 60%, #b39140);
+    background: linear-gradient(180deg, rgb(var(--gold-300-rgb)), rgb(var(--gold-500-rgb)) 60%, rgb(var(--gold-600-rgb)));
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold text-steel-200
@@ -134,8 +153,8 @@ input[type='range'].seek::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #f0d99a;
-  box-shadow: 0 0 10px rgba(201, 168, 76, 0.8);
+  background: rgb(var(--gold-300-rgb));
+  box-shadow: 0 0 10px rgb(var(--gold-500-rgb) / 0.8);
   transition: transform 0.15s;
 }
 input[type='range'].seek::-webkit-slider-thumb:hover {
@@ -146,5 +165,15 @@ input[type='range'].seek::-moz-range-thumb {
   height: 14px;
   border: none;
   border-radius: 50%;
-  background: #f0d99a;
+  background: rgb(var(--gold-300-rgb));
+}
+
+/* טעינת תמונה עם טשטוש (blur-up) */
+.blur-load {
+  filter: blur(16px);
+  transform: scale(1.05);
+}
+.blur-loaded {
+  filter: blur(0);
+  transform: scale(1);
 }

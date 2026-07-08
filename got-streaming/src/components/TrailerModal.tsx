@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CloseIcon } from './Icons';
 import { IMAGE_PATHS } from '../lib/art';
@@ -11,6 +11,13 @@ interface Props {
 /** נגן טריילר — מנגן את /videos/trailer.mp4 אם קיים */
 export default function TrailerModal({ open, onClose }: Props) {
   const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
   return (
     <AnimatePresence>

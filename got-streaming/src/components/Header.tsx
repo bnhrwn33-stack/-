@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CrownIcon, SearchIcon, SettingsIcon } from './Icons';
 import { useLibrary } from '../context/LibraryContext';
+import ProfileSwitcher from './ProfileSwitcher';
 
 interface Props {
   onSearchOpen: () => void;
@@ -18,9 +19,12 @@ const NAV_LINKS = [
   { to: '/gallery', label: 'גלריה' },
   { to: '/media', label: 'מדיה' },
   { to: '/timeline', label: 'ציר זמן' },
+  { to: '/calendar', label: 'לוח שידורים' },
   { to: '/quiz', label: 'חידונים' },
   { to: '/favorites', label: 'מועדפים' },
+  { to: '/watchlist', label: 'לצפייה מאוחר יותר' },
   { to: '/stats', label: 'הפרופיל שלי' },
+  { to: '/manage', label: 'ניהול ספרייה' },
 ];
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -93,6 +97,7 @@ export default function Header({ onSearchOpen, onSettingsOpen }: Props) {
         >
           <SettingsIcon width={18} height={18} />
         </button>
+        <ProfileSwitcher />
 
         {/* המבורגר למובייל */}
         <button

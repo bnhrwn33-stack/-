@@ -8,6 +8,8 @@ import { episodePoster, IMAGE_PATHS } from '../lib/art';
 import { CHARACTERS } from '../data/characters';
 import { HOUSES } from '../data/houses';
 import { LOCATIONS } from '../data/world';
+import { ALL_GENRES, ALL_TAGS, deriveTags, durationBucket, DURATION_LABELS, episodeDuration, seasonGenres, tagIcon } from '../data/tags';
+import { SEASONS_META } from '../lib/metadata';
 
 interface WorldResult {
   kind: 'character' | 'house' | 'location';
@@ -25,12 +27,19 @@ interface Props {
 export default function SearchOverlay({ open, onClose }: Props) {
   const { seasons } = useLibrary();
   const [query, setQuery] = useState('');
+  const [fTag, setFTag] = useState<string | null>(null);
+  const [fGenre, setFGenre] = useState<string | null>(null);
+  const [fYear, setFYear] = useState<string | null>(null);
+  const [fDuration, setFDuration] = useState<'short' | 'medium' | 'long' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const hasFilters = Boolean(fTag || fGenre || fYear || fDuration);
+  const years = Array.from(new Set(SEASONS_META.map((s) => s.year)));
 
   useEffect(() => {
     if (open) {
       setQuery('');
+      setFTag(null); setFGenre(null); setFYear(null); setFDuration(null);
       setTimeout(() => inputRef.current?.focus(), 60);
     }
   }, [open]);
@@ -43,30 +52,42 @@ export default function SearchOverlay({ open, onClose }: Props) {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return [];
     const all = seasons.flatMap((s) => s.episodes);
+    if (!q && !hasFilters) return [];
 
-    // חיפוש לפי "עונה X" / "פרק Y" / "SxEy" / טקסט חופשי
-    const se = q.match(/^s?(\d{1,2})\s*[ex]\s*(\d{1,2})$/i) || q.match(/עונה\s*(\d{1,2})\s*פרק\s*(\d{1,2})/);
-    if (se) {
-      return all.filter((e) => e.season === +se[1] && e.episode === +se[2]);
+    let base = all;
+    if (q) {
+      const se = q.match(/^s?(\d{1,2})\s*[ex]\s*(\d{1,2})$/i) || q.match(/עונה\s*(\d{1,2})\s*פרק\s*(\d{1,2})/);
+      if (se) base = all.filter((e) => e.season === +se[1] && e.episode === +se[2]);
+      else {
+        const seasonOnly = q.match(/^(?:עונה|season|s)\s*(\d{1,2})$/i);
+        if (seasonOnly) base = all.filter((e) => e.season === +seasonOnly[1]);
+        else {
+          const epOnly = q.match(/^(?:פרק|episode|ep|e)\s*(\d{1,2})$/i);
+          if (epOnly) base = all.filter((e) => e.episode === +epOnly[1]);
+          else {
+            const num = q.match(/^(\d{1,2})$/);
+            if (num) base = all.filter((e) => e.episode === +num[1] || e.season === +num[1]);
+            else {
+              base = all.filter(
+                (e) =>
+                  e.titleHe.toLowerCase().includes(q) ||
+                  e.title.toLowerCase().includes(q) ||
+                  e.synopsis.toLowerCase().includes(q),
+              );
+            }
+          }
+        }
+      }
     }
-    const seasonOnly = q.match(/^(?:עונה|season|s)\s*(\d{1,2})$/i);
-    if (seasonOnly) return all.filter((e) => e.season === +seasonOnly[1]);
-    const epOnly = q.match(/^(?:פרק|episode|ep|e)\s*(\d{1,2})$/i);
-    if (epOnly) return all.filter((e) => e.episode === +epOnly[1]);
-    const num = q.match(/^(\d{1,2})$/);
-    if (num) return all.filter((e) => e.episode === +num[1] || e.season === +num[1]);
 
-    return all
-      .filter(
-        (e) =>
-          e.titleHe.toLowerCase().includes(q) ||
-          e.title.toLowerCase().includes(q) ||
-          e.synopsis.toLowerCase().includes(q),
-      )
-      .slice(0, 24);
-  }, [query, seasons]);
+    return base
+      .filter((e) => !fTag || deriveTags(e).includes(fTag))
+      .filter((e) => !fGenre || seasonGenres(e.season).includes(fGenre))
+      .filter((e) => !fYear || SEASONS_META.find((s) => s.number === e.season)?.year === fYear)
+      .filter((e) => !fDuration || durationBucket(episodeDuration(e.season, e.episode)) === fDuration)
+      .slice(0, 30);
+  }, [query, seasons, hasFilters, fTag, fGenre, fYear, fDuration]);
 
   // חיפוש בעולם הסדרה: דמויות (גם לפי שחקן), בתים ומיקומים
   const worldResults = useMemo<WorldResult[]>(() => {
@@ -128,6 +149,58 @@ export default function SearchOverlay({ open, onClose }: Props) {
               </button>
             </motion.div>
 
+            {/* חיפוש מתקדם: תגיות, ז'אנר, שנה, משך */}
+            <div className="mt-5 space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_TAGS.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setFTag(fTag === t ? null : t)}
+                    className={`text-xs rounded-full px-3 py-1.5 transition-colors ${fTag === t ? 'bg-gold-500 text-ink-950' : 'glass text-steel-300 hover:text-gold-400'}`}
+                  >
+                    {tagIcon(t)} {t}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_GENRES.map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setFGenre(fGenre === g ? null : g)}
+                    className={`text-xs rounded-full px-3 py-1.5 transition-colors ${fGenre === g ? 'bg-gold-500 text-ink-950' : 'glass text-steel-300 hover:text-gold-400'}`}
+                  >
+                    {g}
+                  </button>
+                ))}
+                {years.map((y) => (
+                  <button
+                    key={y}
+                    onClick={() => setFYear(fYear === y ? null : y)}
+                    className={`text-xs rounded-full px-3 py-1.5 transition-colors ${fYear === y ? 'bg-gold-500 text-ink-950' : 'glass text-steel-300 hover:text-gold-400'}`}
+                  >
+                    {y}
+                  </button>
+                ))}
+                {(['short', 'medium', 'long'] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setFDuration(fDuration === d ? null : d)}
+                    className={`text-xs rounded-full px-3 py-1.5 transition-colors ${fDuration === d ? 'bg-gold-500 text-ink-950' : 'glass text-steel-300 hover:text-gold-400'}`}
+                  >
+                    ⏱ {DURATION_LABELS[d]}
+                  </button>
+                ))}
+                {hasFilters && (
+                  <button
+                    onClick={() => { setFTag(null); setFGenre(null); setFYear(null); setFDuration(null); }}
+                    className="text-xs rounded-full px-3 py-1.5 text-rose-400 hover:text-rose-300 transition-colors"
+                  >
+                    ✕ נקה סינון
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* תוצאות מעולם הסדרה */}
             {worldResults.length > 0 && (
               <div className="mt-6 flex flex-wrap gap-2">
@@ -149,7 +222,7 @@ export default function SearchOverlay({ open, onClose }: Props) {
             )}
 
             <div className="mt-6 space-y-2">
-              {query && results.length === 0 && worldResults.length === 0 && (
+              {(query || hasFilters) && results.length === 0 && worldResults.length === 0 && (
                 <p className="text-center text-steel-500 py-10">לא נמצאו תוצאות — נסה שם פרק, דמות, בית או מקום.</p>
               )}
               {results.map((ep, i) => (

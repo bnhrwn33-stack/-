@@ -11,12 +11,13 @@ export default {
           700: '#1a1a22',
           600: '#24242e',
         },
+        // ערוצי gold-* מוזנים ממשתני CSS כדי לתמוך בהחלפת accent חיה (ראה UiContext)
         gold: {
-          300: '#f0d99a',
-          400: '#e3c46e',
-          500: '#c9a84c',
-          600: '#a8863a',
-          700: '#7d6229',
+          300: 'rgb(var(--gold-300-rgb) / <alpha-value>)',
+          400: 'rgb(var(--gold-400-rgb) / <alpha-value>)',
+          500: 'rgb(var(--gold-500-rgb) / <alpha-value>)',
+          600: 'rgb(var(--gold-600-rgb) / <alpha-value>)',
+          700: 'rgb(var(--gold-700-rgb) / <alpha-value>)',
         },
         steel: {
           200: '#d9dde3',
@@ -31,7 +32,7 @@ export default {
       },
       boxShadow: {
         card: '0 10px 40px -12px rgba(0,0,0,0.8)',
-        glow: '0 0 40px -8px rgba(201,168,76,0.35)',
+        glow: '0 0 40px -8px rgb(var(--gold-500-rgb) / 0.35)',
       },
       backgroundImage: {
         'hero-fade':

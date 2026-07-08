@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useUi } from '../../context/UiContext';
+import { ACCENTS, useUi } from '../../context/UiContext';
 
 /** לוח שליטה צף: שלג, מוזיקה, סמן מיוחד וערכת נושא */
 export default function EffectsDock() {
@@ -43,6 +43,28 @@ export default function EffectsDock() {
               active={prefs.theme === 'light'}
               onClick={() => setPref('theme', prefs.theme === 'dark' ? 'light' : 'dark')}
             />
+            <div className="pt-2 mt-1 border-t border-white/[0.07]">
+              <p className="text-[11px] text-steel-500 px-2 pb-1">נגן</p>
+            </div>
+            <Toggle label="מעבר אוטומטי לפרק הבא" icon="⏭️" active={prefs.autoNext} onClick={() => setPref('autoNext', !prefs.autoNext)} />
+            <Toggle label="המשך צפייה בלי לשאול" icon="▶️" active={prefs.autoResume} onClick={() => setPref('autoResume', !prefs.autoResume)} />
+
+            <div className="pt-2 mt-1 border-t border-white/[0.07]">
+              <p className="text-[11px] text-steel-500 px-2 pb-1.5">צבע accent — ערכת בית</p>
+              <div className="flex gap-2 px-1.5">
+                {(Object.entries(ACCENTS) as [keyof typeof ACCENTS, (typeof ACCENTS)[keyof typeof ACCENTS]][]).map(([id, a]) => (
+                  <button
+                    key={id}
+                    onClick={() => setPref('accent', id)}
+                    title={a.name}
+                    className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                      prefs.accent === id ? 'border-white scale-110' : 'border-transparent'
+                    }`}
+                    style={{ background: `linear-gradient(135deg, ${a.light}, ${a.primary} 55%, ${a.dark})` }}
+                  />
+                ))}
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

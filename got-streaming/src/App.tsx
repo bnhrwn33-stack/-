@@ -3,6 +3,7 @@ import { HashRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LibraryProvider } from './context/LibraryContext';
 import { UiProvider } from './context/UiContext';
+import { ToastProvider } from './context/ToastContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import SearchOverlay from './components/SearchOverlay';
@@ -12,6 +13,7 @@ import CustomCursor from './components/effects/CustomCursor';
 import CinematicIntro from './components/effects/CinematicIntro';
 import AmbientMusic from './components/effects/AmbientMusic';
 import EffectsDock from './components/effects/EffectsDock';
+import KeyboardHelpOverlay from './components/KeyboardHelpOverlay';
 import Home from './pages/Home';
 
 // טעינה עצלה לעמודים משניים — ה-bundle הראשוני נשאר קטן
@@ -19,6 +21,7 @@ const Seasons = lazy(() => import('./pages/Seasons'));
 const SeasonPage = lazy(() => import('./pages/SeasonPage'));
 const WatchPage = lazy(() => import('./pages/WatchPage'));
 const Favorites = lazy(() => import('./pages/Favorites'));
+const Watchlist = lazy(() => import('./pages/Watchlist'));
 const Characters = lazy(() => import('./pages/Characters'));
 const CharacterPage = lazy(() => import('./pages/CharacterPage'));
 const Houses = lazy(() => import('./pages/Houses'));
@@ -27,8 +30,10 @@ const MapPage = lazy(() => import('./pages/MapPage'));
 const Gallery = lazy(() => import('./pages/Gallery'));
 const Media = lazy(() => import('./pages/Media'));
 const TimelinePage = lazy(() => import('./pages/TimelinePage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const QuizPage = lazy(() => import('./pages/QuizPage'));
 const StatsPage = lazy(() => import('./pages/StatsPage'));
+const LibraryManager = lazy(() => import('./pages/LibraryManager'));
 
 function PageFallback() {
   return (
@@ -56,6 +61,7 @@ function AnimatedRoutes() {
             <Route path="/season/:num" element={<SeasonPage />} />
             <Route path="/watch/:season/:episode" element={<WatchPage />} />
             <Route path="/favorites" element={<Favorites />} />
+            <Route path="/watchlist" element={<Watchlist />} />
             <Route path="/characters" element={<Characters />} />
             <Route path="/character/:id" element={<CharacterPage />} />
             <Route path="/houses" element={<Houses />} />
@@ -64,8 +70,10 @@ function AnimatedRoutes() {
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/media" element={<Media />} />
             <Route path="/timeline" element={<TimelinePage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/quiz" element={<QuizPage />} />
             <Route path="/stats" element={<StatsPage />} />
+            <Route path="/manage" element={<LibraryManager />} />
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>
@@ -80,24 +88,27 @@ export default function App() {
 
   return (
     <UiProvider>
-      <LibraryProvider>
-        <HashRouter>
-          <CinematicIntro />
-          <SnowOverlay />
-          <CustomCursor />
-          <AmbientMusic />
-          <div className="min-h-screen flex flex-col">
-            <Header onSearchOpen={() => setSearchOpen(true)} onSettingsOpen={() => setSettingsOpen(true)} />
-            <main className="flex-1">
-              <AnimatedRoutes />
-            </main>
-            <Footer />
-            <EffectsDock />
-            <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
-            <DriveSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-          </div>
-        </HashRouter>
-      </LibraryProvider>
+      <ToastProvider>
+        <LibraryProvider>
+          <HashRouter>
+            <CinematicIntro />
+            <SnowOverlay />
+            <CustomCursor />
+            <AmbientMusic />
+            <div className="min-h-screen flex flex-col">
+              <Header onSearchOpen={() => setSearchOpen(true)} onSettingsOpen={() => setSettingsOpen(true)} />
+              <main className="flex-1">
+                <AnimatedRoutes />
+              </main>
+              <Footer />
+              <EffectsDock />
+              <KeyboardHelpOverlay />
+              <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+              <DriveSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+            </div>
+          </HashRouter>
+        </LibraryProvider>
+      </ToastProvider>
     </UiProvider>
   );
 }

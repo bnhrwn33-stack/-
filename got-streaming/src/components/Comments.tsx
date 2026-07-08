@@ -1,19 +1,17 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useLibrary } from '../context/LibraryContext';
-import { CloseIcon } from './Icons';
+import { CloseIcon, HeartIcon } from './Icons';
 
-/** אזור תגובות לפרק — נשמר מקומית בדפדפן */
+/** אזור תגובות לפרק — נשמר מקומית בדפדפן, משויך לפרופיל הפעיל */
 export default function Comments({ episodeKey }: { episodeKey: string }) {
-  const { comments, addComment, removeComment, profile, login } = useLibrary();
+  const { comments, addComment, removeComment, likeComment, activeProfile } = useLibrary();
   const [text, setText] = useState('');
-  const [nameInput, setNameInput] = useState('');
   const list = comments[episodeKey] ?? [];
 
   const submit = () => {
     const t = text.trim();
     if (!t) return;
-    if (!profile && nameInput.trim()) login(nameInput);
     addComment(episodeKey, t);
     setText('');
   };
@@ -26,14 +24,12 @@ export default function Comments({ episodeKey }: { episodeKey: string }) {
       </h2>
 
       <div className="glass rounded-xl p-4">
-        {!profile && (
-          <input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            placeholder="השם שלך (חד-פעמי)"
-            className="w-full sm:w-64 glass rounded-lg px-3.5 py-2 text-sm text-white placeholder:text-steel-500 outline-none focus:border-gold-600/60 mb-3"
-          />
-        )}
+        <div className="flex items-center gap-2.5 mb-3">
+          <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: `linear-gradient(135deg, ${activeProfile.color}, #0a0a0e)` }}>
+            {activeProfile.avatar}
+          </span>
+          <span className="text-sm text-steel-300">מגיב/ה בתור <b className="text-white">{activeProfile.name}</b></span>
+        </div>
         <div className="flex gap-3">
           <textarea
             value={text}
@@ -75,6 +71,12 @@ export default function Comments({ episodeKey }: { episodeKey: string }) {
               </button>
             </div>
             <p className="text-sm text-steel-300 leading-relaxed whitespace-pre-wrap">{c.text}</p>
+            <button
+              onClick={() => likeComment(episodeKey, c.ts)}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs text-steel-500 hover:text-rose-400 transition-colors"
+            >
+              <HeartIcon width={13} height={13} filled={(c.likes ?? 0) > 0} /> {c.likes ?? 0}
+            </button>
           </motion.div>
         ))}
       </div>

@@ -5,7 +5,7 @@ import type { Episode } from '../types';
 import { useLibrary } from '../context/LibraryContext';
 import { episodePoster, IMAGE_PATHS } from '../lib/art';
 import SmartImage from './SmartImage';
-import { CheckIcon, DownloadIcon, HeartIcon, LinkIcon, PlayIcon, ShareIcon, ClockIcon } from './Icons';
+import { CheckIcon, DownloadIcon, HeartIcon, LinkIcon, PlayIcon, PlusIcon, ShareIcon, ClockIcon } from './Icons';
 import { shareUrl } from '../lib/drive';
 import { episodeRating } from '../data/ratings';
 
@@ -18,7 +18,7 @@ function fmtDuration(ms?: number): string | null {
 }
 
 export default function EpisodeCard({ ep, index = 0 }: { ep: Episode; index?: number }) {
-  const { progress, watched, favorites, toggleWatched, toggleFavorite } = useLibrary();
+  const { progress, watched, favorites, watchlist, toggleWatched, toggleFavorite, toggleWatchlist, overrides, newEpisodeKeys } = useLibrary();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
@@ -26,9 +26,14 @@ export default function EpisodeCard({ ep, index = 0 }: { ep: Episode; index?: nu
   const pct = prog && prog.duration > 0 ? Math.min(100, (prog.time / prog.duration) * 100) : 0;
   const isWatched = watched.includes(ep.key);
   const isFav = favorites.includes(ep.key);
+  const inWatchlist = watchlist.includes(ep.key);
+  const isNew = newEpisodeKeys.has(ep.key);
   const hasVideo = ep.sources.length > 0;
   const duration = fmtDuration(ep.sources[0]?.durationMillis);
   const watchPath = `/watch/${ep.season}/${ep.episode}`;
+  const ov = overrides[ep.key];
+  const displayTitle = ov?.title || ep.titleHe;
+  const displaySynopsis = ov?.synopsis || ep.synopsis;
 
   const linkForShare = hasVideo ? shareUrl(ep.sources[0].id) : `${location.origin}${location.pathname}#${watchPath}`;
 
@@ -61,9 +66,9 @@ export default function EpisodeCard({ ep, index = 0 }: { ep: Episode; index?: nu
       {/* עטיפה */}
       <Link to={watchPath} className="block relative aspect-video overflow-hidden bg-ink-800">
         <SmartImage
-          src={IMAGE_PATHS.episode(ep.season, ep.episode)}
+          src={ov?.cover || IMAGE_PATHS.episode(ep.season, ep.episode)}
           fallback={episodePoster(ep.season, ep.episode)}
-          alt={`עונה ${ep.season} פרק ${ep.episode} — ${ep.titleHe}`}
+          alt={`עונה ${ep.season} פרק ${ep.episode} — ${displayTitle}`}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-ink-950/80 via-transparent opacity-70" />
@@ -83,6 +88,11 @@ export default function EpisodeCard({ ep, index = 0 }: { ep: Episode; index?: nu
           {!hasVideo && (
             <span className="text-[11px] bg-ink-950/80 backdrop-blur px-2 py-0.5 rounded text-steel-400 border border-white/10">
               לא מחובר
+            </span>
+          )}
+          {isNew && (
+            <span className="text-[11px] font-bold bg-emerald-500/90 px-2 py-0.5 rounded text-ink-950">
+              חדש
             </span>
           )}
         </div>
@@ -117,11 +127,11 @@ export default function EpisodeCard({ ep, index = 0 }: { ep: Episode; index?: nu
       <div className="p-4">
         <h3 className="font-semibold text-white leading-snug">
           <Link to={watchPath} className="hover:text-gold-400 transition-colors">
-            {ep.titleHe}
+            {displayTitle}
           </Link>
         </h3>
         <p className="text-xs text-steel-500 font-display tracking-wide mt-0.5">{ep.title}</p>
-        <p className="text-sm text-steel-400 mt-2 leading-relaxed line-clamp-2">{ep.synopsis}</p>
+        <p className="text-sm text-steel-400 mt-2 leading-relaxed line-clamp-2">{displaySynopsis}</p>
 
         {/* פעולות */}
         <div className="mt-3.5 flex items-center gap-1 text-steel-400">
@@ -169,6 +179,13 @@ export default function EpisodeCard({ ep, index = 0 }: { ep: Episode; index?: nu
             className={`p-2 rounded-md hover:bg-white/10 transition-colors ${isFav ? 'text-rose-400' : 'hover:text-rose-400'}`}
           >
             <HeartIcon width={17} height={17} filled={isFav} />
+          </button>
+          <button
+            onClick={() => toggleWatchlist(ep.key)}
+            title={inWatchlist ? 'הסר מרשימת הצפייה' : 'לצפייה מאוחר יותר'}
+            className={`p-2 rounded-md hover:bg-white/10 transition-colors ${inWatchlist ? 'text-gold-400' : 'hover:text-gold-400'}`}
+          >
+            {inWatchlist ? <CheckIcon width={17} height={17} /> : <PlusIcon width={17} height={17} />}
           </button>
         </div>
       </div>

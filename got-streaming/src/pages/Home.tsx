@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Hero from '../components/Hero';
 import EpisodeCard from '../components/EpisodeCard';
@@ -9,6 +9,8 @@ import { SkeletonGrid } from '../components/SkeletonCard';
 import { useLibrary } from '../context/LibraryContext';
 import { IMAGE_PATHS, seasonPoster } from '../lib/art';
 import { topRatedKeys } from '../data/ratings';
+import { deriveTags } from '../data/tags';
+import { DiceIcon } from '../components/Icons';
 
 function SectionTitle({ children, to }: { children: React.ReactNode; to?: string }) {
   return (
@@ -27,7 +29,8 @@ function SectionTitle({ children, to }: { children: React.ReactNode; to?: string
 }
 
 export default function Home() {
-  const { seasons, status, progress, watched } = useLibrary();
+  const { seasons, status, progress, watched, viewLog, newEpisodeKeys } = useLibrary();
+  const navigate = useNavigate();
   const allEpisodes = seasons.flatMap((s) => s.episodes);
 
   // המשך צפייה — לפי עדכון אחרון
@@ -69,6 +72,45 @@ export default function Home() {
     }
     return recs.slice(0, 4);
   })();
+
+  // "כי צפית ב..." — פרקים עם תגיות דומות לפרק האחרון שנצפה
+  const lastWatchedKey = [...Object.entries(progress)].sort((a, b) => b[1].updatedAt - a[1].updatedAt)[0]?.[0];
+  const lastWatchedEp = lastWatchedKey ? allEpisodes.find((e) => e.key === lastWatchedKey) : undefined;
+  const becauseYouWatched = (() => {
+    if (!lastWatchedEp) return [];
+    const baseTags = new Set(deriveTags(lastWatchedEp));
+    return allEpisodes
+      .filter((e) => e.key !== lastWatchedEp.key && deriveTags(e).some((t) => baseTags.has(t)))
+      .slice(0, 8);
+  })();
+
+  // "חדש שנוסף" — פרקים שהתגלו לאחרונה בסריקה
+  const newlyAdded = allEpisodes.filter((e) => newEpisodeKeys.has(e.key));
+
+  // "הכי נצפה השבוע אצלך" — לפי יומן הצפייה האישי (7 הימים האחרונים)
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const weeklyCounts = new Map<string, number>();
+  for (const v of viewLog) {
+    if (v.ts >= weekAgo) weeklyCounts.set(v.key, (weeklyCounts.get(v.key) ?? 0) + 1);
+  }
+  const trendingThisWeek = [...weeklyCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([key]) => allEpisodes.find((e) => e.key === key))
+    .filter((e): e is NonNullable<typeof e> => Boolean(e))
+    .slice(0, 8);
+
+  // "ממשיך להיות פופולרי" — עוד קלאסיקות מדורגות גבוה (מעבר לשורה הראשונה)
+  const stillPopular = topRatedKeys(16)
+    .slice(8)
+    .map(({ season, episode }) => allEpisodes.find((e) => e.season === season && e.episode === episode))
+    .filter((e): e is NonNullable<typeof e> => Boolean(e));
+
+  const surpriseMe = () => {
+    const unwatched = allEpisodes.filter((e) => !watched.includes(e.key) && e.sources.length > 0);
+    const pool = unwatched.length > 0 ? unwatched : allEpisodes;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (pick) navigate(`/watch/${pick.season}/${pick.episode}`);
+  };
 
   return (
     <>
@@ -141,6 +183,39 @@ export default function Home() {
           </section>
         )}
 
+        {newlyAdded.length > 0 && (
+          <section>
+            <SectionTitle>🆕 חדש שנוסף</SectionTitle>
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {newlyAdded.map((ep, i) => (
+                <EpisodeCard key={ep.key} ep={ep} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {trendingThisWeek.length > 0 && (
+          <section>
+            <SectionTitle>הכי נצפה השבוע אצלך</SectionTitle>
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {trendingThisWeek.map((ep, i) => (
+                <EpisodeCard key={ep.key} ep={ep} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {becauseYouWatched.length > 0 && lastWatchedEp && (
+          <section>
+            <SectionTitle>כי צפית ב-{lastWatchedEp.titleHe}</SectionTitle>
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {becauseYouWatched.map((ep, i) => (
+                <EpisodeCard key={ep.key} ep={ep} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* המלצות מותאמות */}
         {recommendations.length > 0 && (
           <section>
@@ -163,10 +238,21 @@ export default function Home() {
           </div>
         </section>
 
+        {stillPopular.length > 0 && (
+          <section>
+            <SectionTitle>ממשיך להיות פופולרי</SectionTitle>
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {stillPopular.map((ep, i) => (
+                <EpisodeCard key={ep.key} ep={ep} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* גילוי העולם */}
         <section>
           <SectionTitle>גלה את העולם</SectionTitle>
-          <div className="grid gap-5 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-5 grid-cols-2 lg:grid-cols-5">
             {[
               { to: '/characters', icon: '👑', title: 'הדמויות', sub: 'ביוגרפיות, בריתות ואויבים' },
               { to: '/houses', icon: '🛡️', title: 'בתי האצולה', sub: 'סמלים, מוטו ועצי משפחה' },
@@ -187,6 +273,18 @@ export default function Home() {
                 </Link>
               </motion.div>
             ))}
+            <motion.button
+              onClick={surpriseMe}
+              initial={{ opacity: 0, y: 22 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-30px' }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+              className="group text-right block glass rounded-2xl p-6 card-hover h-full"
+            >
+              <DiceIcon className="text-gold-400 mb-3 group-hover:rotate-12 transition-transform duration-300" width={38} height={38} />
+              <p className="font-bold text-white group-hover:text-gold-400 transition-colors">הפתע אותי</p>
+              <p className="text-xs text-steel-400 mt-1">פרק אקראי שעדיין לא ראית</p>
+            </motion.button>
           </div>
         </section>
       </div>

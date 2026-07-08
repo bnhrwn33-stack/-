@@ -31,6 +31,13 @@ export default function DriveSettingsModal({ open, onClose }: Props) {
     }
   }, [open, settings, librarySource]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   const submitDrive = async () => {
     setBusy(true);
     setLocalError(null);
