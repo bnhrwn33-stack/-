@@ -1,16 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useLibrary } from '../context/LibraryContext';
+import { useUi } from '../context/UiContext';
 import VideoPlayer from '../components/VideoPlayer';
 import EpisodeCard from '../components/EpisodeCard';
+import Comments from '../components/Comments';
+import RatingStars from '../components/RatingStars';
+import EmberOverlay from '../components/effects/EmberOverlay';
 import { CheckIcon, DownloadIcon, HeartIcon, LinkIcon, NextIcon, PrevIcon, ShareIcon } from '../components/Icons';
 import { shareUrl } from '../lib/drive';
+import { episodeRating } from '../data/ratings';
 
 export default function WatchPage() {
   const { season, episode } = useParams();
   const navigate = useNavigate();
-  const { findEpisode, nextEpisode, prevEpisode, seasons, watched, favorites, toggleWatched, toggleFavorite } = useLibrary();
+  const {
+    findEpisode, nextEpisode, prevEpisode, seasons, watched, favorites,
+    toggleWatched, toggleFavorite, progress, ratings, rateEpisode,
+  } = useLibrary();
+  const { cinemaMode, setCinemaMode } = useUi();
   const [copied, setCopied] = useState(false);
 
   const ep = findEpisode(Number(season), Number(episode));
@@ -42,6 +51,15 @@ export default function WatchPage() {
   const seasonEps = seasons.find((s) => s.number === ep.season)?.episodes ?? [];
   const moreInSeason = seasonEps.filter((e) => e.key !== ep.key).slice(0, 4);
   const linkForShare = ep.sources[0] ? shareUrl(ep.sources[0].id) : location.href;
+  const savedProgress = progress[ep.key];
+  const crowdRating = episodeRating(ep.season, ep.episode);
+  const myRating = ratings[ep.key] ?? 0;
+
+  const fmtTime = (t: number) => {
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
 
   const copyLink = async () => {
     try {
@@ -52,7 +70,24 @@ export default function WatchPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-24 pb-10">
+    <div className="relative mx-auto max-w-6xl px-4 sm:px-6 pt-24 pb-10">
+      {/* גיצי אש עדינים ברקע העמוד */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
+        <EmberOverlay density={18} />
+      </div>
+
+      {/* מצב קולנוע — מחשיך את כל האתר ומשאיר את הנגן */}
+      <AnimatePresence>
+        {cinemaMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/95"
+            onClick={() => setCinemaMode(false)}
+          />
+        )}
+      </AnimatePresence>
       {/* פירורי לחם */}
       <motion.nav
         initial={{ opacity: 0 }}
@@ -66,7 +101,12 @@ export default function WatchPage() {
         <span className="text-steel-300">פרק {ep.episode}</span>
       </motion.nav>
 
-      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
+        className={`relative ${cinemaMode ? 'z-50' : ''}`}
+      >
         <VideoPlayer episode={ep} onNext={nxt ? goNext : undefined} onPrev={prv ? goPrev : undefined} />
       </motion.div>
 
@@ -83,9 +123,33 @@ export default function WatchPage() {
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold text-white">{ep.titleHe}</h1>
           <p className="text-steel-500 font-display tracking-wide mt-1">{ep.title}</p>
+
+          {/* דירוגים */}
+          <div className="mt-3 flex items-center gap-4 flex-wrap">
+            {crowdRating !== undefined && (
+              <span className="inline-flex items-center gap-1.5 text-sm glass rounded-full px-3 py-1">
+                <span className="text-gold-400 font-bold">★ {crowdRating.toFixed(1)}</span>
+                <span className="text-steel-500 text-xs">דירוג הקהל</span>
+              </span>
+            )}
+            <span className="inline-flex items-center gap-2 text-sm">
+              <RatingStars value={myRating} onChange={(s) => rateEpisode(ep.key, s)} size={19} />
+              <span className="text-steel-500 text-xs">{myRating ? 'הדירוג שלך' : 'דרג את הפרק'}</span>
+            </span>
+          </div>
+
           <p className="text-steel-300 mt-4 leading-relaxed max-w-2xl">{ep.synopsis}</p>
 
           <div className="mt-5 flex items-center gap-2 flex-wrap">
+            {savedProgress && savedProgress.time > 30 && savedProgress.time < savedProgress.duration * 0.95 && (
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="btn-gold !px-4 !py-2 text-sm"
+                title="ההצעה להמשיך מופיעה בנגן"
+              >
+                ⏯ המשך מ-{fmtTime(savedProgress.time)}
+              </button>
+            )}
             {prv && (
               <button onClick={goPrev} className="btn-ghost !px-4 !py-2 text-sm">
                 <PrevIcon width={16} height={16} /> פרק קודם
@@ -130,6 +194,9 @@ export default function WatchPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* תגובות */}
+      <Comments episodeKey={ep.key} />
 
       {/* עוד מהעונה */}
       {moreInSeason.length > 0 && (

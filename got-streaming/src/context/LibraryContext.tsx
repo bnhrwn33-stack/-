@@ -26,6 +26,15 @@ interface LibraryContextValue {
   reportProgress: (key: string, time: number, duration: number) => void;
   toggleWatched: (key: string) => void;
   toggleFavorite: (key: string) => void;
+  // דירוגים, תגובות ופרופיל
+  ratings: Record<string, number>;
+  rateEpisode: (key: string, stars: number) => void;
+  comments: Record<string, store.EpisodeComment[]>;
+  addComment: (key: string, text: string) => void;
+  removeComment: (key: string, ts: number) => void;
+  profile: store.Profile | null;
+  login: (name: string) => void;
+  logout: () => void;
 }
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
@@ -55,6 +64,9 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState<Record<string, WatchProgress>>(() => store.getAllProgress());
   const [watched, setWatchedState] = useState<string[]>(() => store.getWatched());
   const [favorites, setFavoritesState] = useState<string[]>(() => store.getFavorites());
+  const [ratings, setRatings] = useState<Record<string, number>>(() => store.getRatings());
+  const [comments, setComments] = useState<Record<string, store.EpisodeComment[]>>(() => store.getComments());
+  const [profile, setProfile] = useState<store.Profile | null>(() => store.getProfile());
 
   const connectDrive = useCallback(async (s: DriveSettings) => {
     setStatus('loading');
@@ -150,6 +162,30 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     setFavoritesState((prev) => store.setFavorite(key, !prev.includes(key)));
   }, []);
 
+  const rateEpisode = useCallback((key: string, stars: number) => {
+    setRatings(store.setRating(key, stars));
+  }, []);
+
+  const addComment = useCallback((key: string, text: string) => {
+    const name = store.getProfile()?.name ?? 'אורח';
+    setComments(store.addComment(key, { name, text, ts: Date.now() }));
+  }, []);
+
+  const removeComment = useCallback((key: string, ts: number) => {
+    setComments(store.deleteComment(key, ts));
+  }, []);
+
+  const login = useCallback((name: string) => {
+    const p = { name: name.trim() };
+    store.saveProfile(p);
+    setProfile(p);
+  }, []);
+
+  const logout = useCallback(() => {
+    store.saveProfile(null);
+    setProfile(null);
+  }, []);
+
   const connectedCount = useMemo(
     () => flat.filter((e) => e.sources.length > 0).length,
     [flat],
@@ -159,6 +195,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     seasons, status, error, connectedCount, settings,
     connectDrive, disconnectDrive, findEpisode, nextEpisode, prevEpisode,
     progress, watched, favorites, reportProgress, toggleWatched, toggleFavorite,
+    ratings, rateEpisode, comments, addComment, removeComment, profile, login, logout,
   };
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;

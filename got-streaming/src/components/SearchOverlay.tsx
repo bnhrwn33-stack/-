@@ -5,6 +5,17 @@ import { useLibrary } from '../context/LibraryContext';
 import { CloseIcon, PlayIcon, SearchIcon } from './Icons';
 import SmartImage from './SmartImage';
 import { episodePoster, IMAGE_PATHS } from '../lib/art';
+import { CHARACTERS } from '../data/characters';
+import { HOUSES } from '../data/houses';
+import { LOCATIONS } from '../data/world';
+
+interface WorldResult {
+  kind: 'character' | 'house' | 'location';
+  icon: string;
+  title: string;
+  subtitle: string;
+  to: string;
+}
 
 interface Props {
   open: boolean;
@@ -57,6 +68,29 @@ export default function SearchOverlay({ open, onClose }: Props) {
       .slice(0, 24);
   }, [query, seasons]);
 
+  // חיפוש בעולם הסדרה: דמויות (גם לפי שחקן), בתים ומיקומים
+  const worldResults = useMemo<WorldResult[]>(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
+    const out: WorldResult[] = [];
+    for (const c of CHARACTERS) {
+      if (c.nameHe.toLowerCase().includes(q) || c.name.toLowerCase().includes(q) || c.actor.toLowerCase().includes(q)) {
+        out.push({ kind: 'character', icon: '👑', title: c.nameHe, subtitle: `דמות · ${c.actor}`, to: `/character/${c.id}` });
+      }
+    }
+    for (const h of HOUSES) {
+      if (h.nameHe.toLowerCase().includes(q) || h.name.toLowerCase().includes(q)) {
+        out.push({ kind: 'house', icon: h.sigil, title: h.nameHe, subtitle: `בית אצולה · ${h.seat}`, to: `/house/${h.id}` });
+      }
+    }
+    for (const l of LOCATIONS) {
+      if (l.nameHe.toLowerCase().includes(q) || l.name.toLowerCase().includes(q)) {
+        out.push({ kind: 'location', icon: '🗺️', title: l.nameHe, subtitle: `מקום · ${l.region}`, to: `/map?loc=${l.id}` });
+      }
+    }
+    return out.slice(0, 8);
+  }, [query]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -86,7 +120,7 @@ export default function SearchOverlay({ open, onClose }: Props) {
                     onClose();
                   }
                 }}
-                placeholder='חיפוש: שם פרק, "עונה 3", "פרק 9", S03E09...'
+                placeholder='חיפוש: פרק, דמות, בית, מקום, שחקן, "עונה 3", S03E09...'
                 className="w-full glass rounded-xl py-4 pr-12 pl-12 text-lg text-white placeholder:text-steel-500 outline-none focus:border-gold-600/60 transition-colors"
               />
               <button onClick={onClose} className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 text-steel-400 hover:text-white transition-colors" aria-label="סגירה">
@@ -94,9 +128,29 @@ export default function SearchOverlay({ open, onClose }: Props) {
               </button>
             </motion.div>
 
+            {/* תוצאות מעולם הסדרה */}
+            {worldResults.length > 0 && (
+              <div className="mt-6 flex flex-wrap gap-2">
+                {worldResults.map((r, i) => (
+                  <motion.button
+                    key={r.to}
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: Math.min(i * 0.03, 0.2) }}
+                    onClick={() => { navigate(r.to); onClose(); }}
+                    className="glass rounded-full pl-4 pr-2.5 py-1.5 flex items-center gap-2 text-sm text-steel-200 hover:bg-white/[0.09] hover:text-gold-300 transition-colors"
+                  >
+                    <span className="text-lg leading-none">{r.icon}</span>
+                    <span className="font-medium">{r.title}</span>
+                    <span className="text-[11px] text-steel-500">{r.subtitle}</span>
+                  </motion.button>
+                ))}
+              </div>
+            )}
+
             <div className="mt-6 space-y-2">
-              {query && results.length === 0 && (
-                <p className="text-center text-steel-500 py-10">לא נמצאו פרקים תואמים.</p>
+              {query && results.length === 0 && worldResults.length === 0 && (
+                <p className="text-center text-steel-500 py-10">לא נמצאו תוצאות — נסה שם פרק, דמות, בית או מקום.</p>
               )}
               {results.map((ep, i) => (
                 <motion.button

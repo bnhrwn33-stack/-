@@ -1,10 +1,11 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { PlayIcon } from './Icons';
 import { IMAGE_PATHS } from '../lib/art';
 import { SHOW_TAGLINE } from '../lib/metadata';
 import { useLibrary } from '../context/LibraryContext';
+import TrailerModal from './TrailerModal';
 
 /** רקע SVG דרמטי (כס מוקף הילת אור) — גיבוי כשאין תמונת hero.jpg */
 function ThroneBackdrop() {
@@ -59,6 +60,8 @@ export default function Hero() {
   const bgY = useTransform(scrollYProgress, [0, 1], ['0%', '28%']);
   const fade = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
   const { seasons, progress } = useLibrary();
+  const [trailerOpen, setTrailerOpen] = useState(false);
+  const [hasHeroVideo, setHasHeroVideo] = useState(true);
 
   // "המשך צפייה" — הפרק האחרון שנצפה חלקית
   const resume = Object.entries(progress)
@@ -68,7 +71,7 @@ export default function Hero() {
 
   return (
     <div ref={ref} className="relative h-[92vh] min-h-[560px] overflow-hidden">
-      {/* שכבת רקע עם פרלקסה */}
+      {/* שכבת רקע עם פרלקסה: וידאו (אם קיים) → תמונה (אם קיימת) → SVG דרמטי */}
       <motion.div style={{ y: bgY }} className="absolute inset-0 scale-110">
         <ThroneBackdrop />
         <img
@@ -77,6 +80,17 @@ export default function Hero() {
           className="absolute inset-0 w-full h-full object-cover"
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
+        {hasHeroVideo && (
+          <video
+            src={IMAGE_PATHS.heroVideo}
+            className="absolute inset-0 w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            onError={() => setHasHeroVideo(false)}
+          />
+        )}
       </motion.div>
 
       {/* Overlay כהה */}
@@ -130,6 +144,9 @@ export default function Hero() {
           <Link to="/seasons" className="btn-ghost text-base">
             כל העונות
           </Link>
+          <button onClick={() => setTrailerOpen(true)} className="btn-ghost text-base">
+            🎬 טריילר
+          </button>
         </motion.div>
       </motion.div>
 
@@ -145,6 +162,8 @@ export default function Hero() {
           <path d="m6 9 6 6 6-6" />
         </svg>
       </motion.div>
+
+      <TrailerModal open={trailerOpen} onClose={() => setTrailerOpen(false)} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { episodePoster, IMAGE_PATHS } from '../lib/art';
 import SmartImage from './SmartImage';
 import { CheckIcon, DownloadIcon, HeartIcon, LinkIcon, PlayIcon, ShareIcon, ClockIcon } from './Icons';
 import { shareUrl } from '../lib/drive';
+import { episodeRating } from '../data/ratings';
 
 function fmtDuration(ms?: number): string | null {
   if (!ms) return null;
@@ -91,11 +92,18 @@ export default function EpisodeCard({ ep, index = 0 }: { ep: Episode; index?: nu
           </span>
         )}
 
-        {duration && (
-          <span className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 text-[11px] bg-ink-950/80 backdrop-blur px-2 py-0.5 rounded text-steel-300">
-            <ClockIcon width={12} height={12} /> {duration}
-          </span>
-        )}
+        <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5">
+          {duration && (
+            <span className="inline-flex items-center gap-1 text-[11px] bg-ink-950/80 backdrop-blur px-2 py-0.5 rounded text-steel-300">
+              <ClockIcon width={12} height={12} /> {duration}
+            </span>
+          )}
+          {episodeRating(ep.season, ep.episode) !== undefined && (
+            <span className="inline-flex items-center gap-1 text-[11px] bg-ink-950/80 backdrop-blur px-2 py-0.5 rounded text-gold-400 font-semibold">
+              ★ {episodeRating(ep.season, ep.episode)!.toFixed(1)}
+            </span>
+          )}
+        </span>
 
         {/* פס התקדמות */}
         {pct > 0 && (

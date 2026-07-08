@@ -3,9 +3,12 @@ import { motion } from 'framer-motion';
 import Hero from '../components/Hero';
 import EpisodeCard from '../components/EpisodeCard';
 import SmartImage from '../components/SmartImage';
+import QuoteBar from '../components/QuoteBar';
+import Countdown from '../components/Countdown';
 import { SkeletonGrid } from '../components/SkeletonCard';
 import { useLibrary } from '../context/LibraryContext';
 import { IMAGE_PATHS, seasonPoster } from '../lib/art';
+import { topRatedKeys } from '../data/ratings';
 
 function SectionTitle({ children, to }: { children: React.ReactNode; to?: string }) {
   return (
@@ -42,6 +45,31 @@ export default function Home() {
     .filter((e): e is NonNullable<typeof e> => Boolean(e))
     .slice(0, 4);
 
+  // הפופולריים ביותר — לפי דירוג הקהל
+  const popular = topRatedKeys(8)
+    .map(({ season, episode }) => allEpisodes.find((e) => e.season === season && e.episode === episode))
+    .filter((e): e is NonNullable<typeof e> => Boolean(e));
+
+  // המלצות מותאמות: הפרק הבא שלא נצפה בכל עונה שהתחלת, ואם אין — תחילת הסדרה
+  const recommendations = (() => {
+    const recs: typeof allEpisodes = [];
+    const startedSeasons = new Set(
+      allEpisodes.filter((e) => watched.includes(e.key) || progress[e.key]).map((e) => e.season),
+    );
+    for (const sn of startedSeasons) {
+      const nextUnseen = allEpisodes.find(
+        (e) => e.season === sn && !watched.includes(e.key) && !(progress[e.key] && progress[e.key].time > 30),
+      );
+      if (nextUnseen && !recs.some((r) => r.key === nextUnseen.key)) recs.push(nextUnseen);
+    }
+    // השלמה מקלאסיקות שלא נצפו
+    for (const p of popular) {
+      if (recs.length >= 4) break;
+      if (!watched.includes(p.key) && !recs.some((r) => r.key === p.key)) recs.push(p);
+    }
+    return recs.slice(0, 4);
+  })();
+
   return (
     <>
       <Hero />
@@ -53,6 +81,9 @@ export default function Home() {
             <SkeletonGrid count={4} />
           </section>
         )}
+
+        <QuoteBar />
+        <Countdown />
 
         {continueList.length > 0 && (
           <section>
@@ -110,16 +141,52 @@ export default function Home() {
           </section>
         )}
 
-        {/* פרקים נבחרים */}
+        {/* המלצות מותאמות */}
+        {recommendations.length > 0 && (
+          <section>
+            <SectionTitle>מומלץ עבורך</SectionTitle>
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {recommendations.map((ep, i) => (
+                <EpisodeCard key={ep.key} ep={ep} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* הפופולריים ביותר */}
         <section>
-          <SectionTitle to="/seasons">פרקים בלתי נשכחים</SectionTitle>
+          <SectionTitle to="/seasons">הפופולריים ביותר</SectionTitle>
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {popular.map((ep, i) => (
+              <EpisodeCard key={ep.key} ep={ep} index={i} />
+            ))}
+          </div>
+        </section>
+
+        {/* גילוי העולם */}
+        <section>
+          <SectionTitle>גלה את העולם</SectionTitle>
+          <div className="grid gap-5 grid-cols-2 lg:grid-cols-4">
             {[
-              [1, 9], [3, 9], [4, 8], [5, 8], [6, 5], [6, 9], [6, 10], [8, 3],
-            ].map(([s, e], i) => {
-              const ep = allEpisodes.find((x) => x.season === s && x.episode === e);
-              return ep ? <EpisodeCard key={ep.key} ep={ep} index={i} /> : null;
-            })}
+              { to: '/characters', icon: '👑', title: 'הדמויות', sub: 'ביוגרפיות, בריתות ואויבים' },
+              { to: '/houses', icon: '🛡️', title: 'בתי האצולה', sub: 'סמלים, מוטו ועצי משפחה' },
+              { to: '/map', icon: '🗺️', title: 'מפת העולם', sub: 'טירות, ערים וקרבות' },
+              { to: '/timeline', icon: '⏳', title: 'ציר הזמן', sub: 'האירועים ששינו הכול' },
+            ].map((card, i) => (
+              <motion.div
+                key={card.to}
+                initial={{ opacity: 0, y: 22 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-30px' }}
+                transition={{ duration: 0.4, delay: Math.min(i * 0.07, 0.4) }}
+              >
+                <Link to={card.to} className="group block glass rounded-2xl p-6 card-hover h-full">
+                  <p className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300 origin-right">{card.icon}</p>
+                  <p className="font-bold text-white group-hover:text-gold-400 transition-colors">{card.title}</p>
+                  <p className="text-xs text-steel-400 mt-1">{card.sub}</p>
+                </Link>
+              </motion.div>
+            ))}
           </div>
         </section>
       </div>

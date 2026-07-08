@@ -8,6 +8,10 @@ const KEYS = {
   watched: 'got.watched',
   favorites: 'got.favorites',
   settings: 'got.settings',
+  ratings: 'got.ratings',
+  comments: 'got.comments',
+  profile: 'got.profile',
+  prefs: 'got.prefs',
 } as const;
 
 function read<T>(key: string, fallback: T): T {
@@ -81,4 +85,73 @@ export function getSettings(): DriveSettings {
 
 export function saveSettings(s: DriveSettings) {
   write(KEYS.settings, s);
+}
+
+// ─── דירוגי משתמש (1–5 כוכבים) ───
+export function getRatings(): Record<string, number> {
+  return read(KEYS.ratings, {});
+}
+
+export function setRating(key: string, stars: number): Record<string, number> {
+  const all = getRatings();
+  if (stars <= 0) delete all[key];
+  else all[key] = stars;
+  write(KEYS.ratings, all);
+  return { ...all };
+}
+
+// ─── תגובות ───
+export interface EpisodeComment {
+  name: string;
+  text: string;
+  ts: number;
+}
+
+export function getComments(): Record<string, EpisodeComment[]> {
+  return read(KEYS.comments, {});
+}
+
+export function addComment(key: string, c: EpisodeComment): Record<string, EpisodeComment[]> {
+  const all = getComments();
+  all[key] = [...(all[key] ?? []), c];
+  write(KEYS.comments, all);
+  return { ...all };
+}
+
+export function deleteComment(key: string, ts: number): Record<string, EpisodeComment[]> {
+  const all = getComments();
+  all[key] = (all[key] ?? []).filter((c) => c.ts !== ts);
+  write(KEYS.comments, all);
+  return { ...all };
+}
+
+// ─── פרופיל משתמש מקומי ───
+export interface Profile {
+  name: string;
+}
+
+export function getProfile(): Profile | null {
+  return read<Profile | null>(KEYS.profile, null);
+}
+
+export function saveProfile(p: Profile | null) {
+  write(KEYS.profile, p);
+}
+
+// ─── העדפות עיצוב ואפקטים ───
+export interface UiPrefs {
+  theme: 'dark' | 'light';
+  snow: boolean;
+  cursor: boolean;
+  music: boolean;
+}
+
+export const DEFAULT_PREFS: UiPrefs = { theme: 'dark', snow: true, cursor: true, music: false };
+
+export function getPrefs(): UiPrefs {
+  return { ...DEFAULT_PREFS, ...read<Partial<UiPrefs>>(KEYS.prefs, {}) };
+}
+
+export function savePrefs(p: UiPrefs) {
+  write(KEYS.prefs, p);
 }

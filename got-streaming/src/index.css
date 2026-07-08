@@ -15,6 +15,37 @@ body {
   overflow-x: hidden;
 }
 
+/* סמן מותאם — מסתירים את הסמן הרגיל */
+html.custom-cursor,
+html.custom-cursor a,
+html.custom-cursor button,
+html.custom-cursor input,
+html.custom-cursor textarea,
+html.custom-cursor summary {
+  cursor: none !important;
+}
+
+/* מצב בהיר — "יום בהייגארדן" */
+:root[data-theme='light'] body {
+  background: #e9e6df;
+  color: #2a2a33;
+}
+:root[data-theme='light'] .glass {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(0, 0, 0, 0.09);
+}
+:root[data-theme='light'] .text-white { color: #17171d !important; }
+:root[data-theme='light'] .text-steel-200 { color: #33333d !important; }
+:root[data-theme='light'] .text-steel-300 { color: #44444f !important; }
+:root[data-theme='light'] .text-steel-400 { color: #5a5a66 !important; }
+:root[data-theme='light'] .text-steel-500 { color: #6e6e7a !important; }
+:root[data-theme='light'] .bg-ink-950 { background-color: #e9e6df !important; }
+:root[data-theme='light'] .bg-ink-800 { background-color: #d9d5cb !important; }
+:root[data-theme='light'] header.glass,
+:root[data-theme='light'] header .glass {
+  background: rgba(245, 243, 238, 0.8);
+}
+
 ::selection {
   background: rgba(201, 168, 76, 0.35);
   color: #fff;
@@ -59,6 +90,17 @@ body {
   .card-hover {
     @apply transition-all duration-300 hover:-translate-y-1.5 hover:shadow-glow;
   }
+}
+
+/* ענף בעץ משפחה — קו מחבר */
+.tree-branch::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 1.9rem;
+  width: 1.1rem;
+  height: 1px;
+  background: rgba(125, 98, 41, 0.45);
 }
 
 /* אנימציית שלד */

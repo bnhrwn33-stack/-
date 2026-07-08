@@ -12,3 +12,11 @@ export const DEFAULT_DRIVE_FOLDER_URL =
  * בלי להזין אותו בחלון ההגדרות. (האתר רץ מקומית בלבד — המפתח לא נחשף לרשת.)
  */
 export const DEFAULT_API_KEY = '';
+
+/**
+ * ספירה לאחור (אופציונלי): תאריך ISO עתידי, למשל '2026-12-01T21:00:00'.
+ * השאר null כדי להסתיר — הסדרה הסתיימה, אבל אפשר לספור למרתון הבא שלך
+ * או לפרמיירה של "בית הדרקון".
+ */
+export const COUNTDOWN_TARGET: string | null = null;
+export const COUNTDOWN_TITLE = 'הפרמיירה הבאה';

@@ -74,6 +74,53 @@ export function seasonPoster(season: number, w = 480, h = 680): string {
   return svgDataUri(svg);
 }
 
+/** דיוקן דמות גנרי — מונוגרמה בצבעי הבית */
+export function characterPortrait(nameHe: string, c1: string, c2: string, w = 480, h = 600): string {
+  const initial = nameHe.trim().charAt(0);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="30%" r="90%">
+      <stop offset="0%" stop-color="${c2}"/>
+      <stop offset="70%" stop-color="#0b0b10"/>
+      <stop offset="100%" stop-color="#050507"/>
+    </radialGradient>
+  </defs>
+  <rect width="${w}" height="${h}" fill="url(#g)"/>
+  <circle cx="${w / 2}" cy="${h * 0.42}" r="${w * 0.3}" fill="none" stroke="${c1}" stroke-opacity="0.4" stroke-width="3"/>
+  <circle cx="${w / 2}" cy="${h * 0.42}" r="${w * 0.34}" fill="none" stroke="${c1}" stroke-opacity="0.15" stroke-width="1.5"/>
+  <text x="50%" y="${h * 0.42}" dy="0.36em" text-anchor="middle" font-family="Heebo, sans-serif" font-weight="800"
+    font-size="${w * 0.32}" fill="${c1}">${initial}</text>
+  <rect x="10" y="10" width="${w - 20}" height="${h - 20}" fill="none" stroke="${c1}" stroke-opacity="0.25"/>
+</svg>`;
+  return svgDataUri(svg);
+}
+
+/** אריח גלריה גנרי */
+export function galleryTile(label: string, seed: number, w = 640, h = 400): string {
+  const hue = (seed * 47) % 50 + 20;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <defs>
+    <radialGradient id="g" cx="${20 + (seed * 13) % 60}%" cy="${20 + (seed * 29) % 50}%" r="100%">
+      <stop offset="0%" stop-color="hsl(${hue},40%,18%)"/>
+      <stop offset="60%" stop-color="#0b0b10"/>
+      <stop offset="100%" stop-color="#050507"/>
+    </radialGradient>
+  </defs>
+  <rect width="${w}" height="${h}" fill="url(#g)"/>
+  <g opacity="0.2" stroke="${GOLD}" fill="none" stroke-width="1.5">
+    ${Array.from({ length: 6 }, (_, i) => {
+      const cx = ((seed * (i + 2) * 89) % w);
+      const cy = ((seed * (i + 3) * 53) % h);
+      const r = 14 + ((seed * (i + 1)) % 42);
+      return `<circle cx="${cx}" cy="${cy}" r="${r}"/>`;
+    }).join('')}
+  </g>
+  <text x="50%" y="52%" text-anchor="middle" font-family="Cinzel, Heebo, serif" font-weight="700"
+    font-size="${h * 0.09}" letter-spacing="3" fill="${GOLD}" fill-opacity="0.85">${label}</text>
+</svg>`;
+  return svgDataUri(svg);
+}
+
 /** נתיבי תמונות שהמשתמש יכול להעלות ל-public/images — נטענות אוטומטית אם קיימות */
 export const IMAGE_PATHS = {
   hero: '/images/hero.jpg',
@@ -81,4 +128,10 @@ export const IMAGE_PATHS = {
   banner: '/images/banner.jpg',
   season: (n: number) => `/images/seasons/s${n}.jpg`,
   episode: (s: number, e: number) => `/images/episodes/s${s}e${e}.jpg`,
+  character: (id: string) => `/images/characters/${id}.jpg`,
+  house: (id: string) => `/images/houses/${id}.jpg`,
+  location: (id: string) => `/images/locations/${id}.jpg`,
+  gallery: (category: string, n: number) => `/images/gallery/${category}/${n}.jpg`,
+  heroVideo: '/videos/hero.mp4',
+  trailer: '/videos/trailer.mp4',
 };

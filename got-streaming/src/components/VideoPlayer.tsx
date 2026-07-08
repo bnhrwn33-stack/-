@@ -5,6 +5,7 @@ import { useLibrary } from '../context/LibraryContext';
 import {
   CheckIcon, FullscreenIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SpeedIcon, VolumeIcon,
 } from './Icons';
+import { useUi } from '../context/UiContext';
 
 interface Props {
   episode: Episode;
@@ -29,6 +30,7 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>();
   const { progress, reportProgress, toggleWatched, watched } = useLibrary();
+  const { cinemaMode, setCinemaMode } = useUi();
 
   const [sourceIdx, setSourceIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -104,6 +106,15 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
     document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.();
   }, []);
 
+  const togglePip = useCallback(async () => {
+    const v = videoRef.current;
+    if (!v || !document.pictureInPictureEnabled) return;
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture();
+      else await v.requestPictureInPicture();
+    } catch { /* הדפדפן סירב */ }
+  }, []);
+
   // קיצורי מקלדת
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -146,11 +157,20 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
         case 'p':
           onPrev?.();
           break;
+        case 'i':
+          togglePip();
+          break;
+        case 'c':
+          setCinemaMode(!cinemaMode);
+          break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePlay, seekBy, toggleFullscreen, onNext, onPrev]);
+  }, [togglePlay, seekBy, toggleFullscreen, onNext, onPrev, togglePip, cinemaMode, setCinemaMode]);
+
+  // יציאה ממצב קולנוע כשעוזבים את העמוד
+  useEffect(() => () => setCinemaMode(false), [setCinemaMode]);
 
   if (!hasVideo) {
     return (
@@ -188,7 +208,7 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
     <div
       ref={wrapRef}
       dir="ltr"
-      className="relative aspect-video rounded-xl overflow-hidden bg-black group/player select-none"
+      className={`relative aspect-video rounded-xl overflow-hidden bg-black group/player select-none ${cinemaMode ? 'z-50' : ''}`}
       onMouseMove={poke}
       onMouseLeave={() => playing && setShowControls(false)}
     >
@@ -374,6 +394,26 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
                   </div>
                 )}
               </div>
+
+              {/* מצב קולנוע */}
+              <button
+                onClick={() => setCinemaMode(!cinemaMode)}
+                title="מצב קולנוע (C)"
+                className={`p-2 rounded hover:bg-white/15 transition-colors ${cinemaMode ? 'text-gold-400' : ''}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <path d="M2 5l4 4M22 5l-4 4" opacity=".6" />
+                </svg>
+              </button>
+
+              {/* Picture in Picture */}
+              <button onClick={togglePip} title="מסך צף — Picture in Picture (I)" className="p-2 rounded hover:bg-white/15 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor" stroke="none" />
+                </svg>
+              </button>
 
               {/* איכות */}
               {episode.sources.length > 1 && (

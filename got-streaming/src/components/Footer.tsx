@@ -23,7 +23,12 @@ export default function Footer() {
           <ul className="space-y-2 text-sm text-steel-400">
             <li><Link to="/" className="hover:text-gold-400 transition-colors">עמוד ראשי</Link></li>
             <li><Link to="/seasons" className="hover:text-gold-400 transition-colors">כל העונות</Link></li>
-            <li><Link to="/favorites" className="hover:text-gold-400 transition-colors">מועדפים</Link></li>
+            <li><Link to="/characters" className="hover:text-gold-400 transition-colors">דמויות</Link></li>
+            <li><Link to="/houses" className="hover:text-gold-400 transition-colors">בתי אצולה</Link></li>
+            <li><Link to="/map" className="hover:text-gold-400 transition-colors">מפת העולם</Link></li>
+            <li><Link to="/gallery" className="hover:text-gold-400 transition-colors">גלריה</Link></li>
+            <li><Link to="/quiz" className="hover:text-gold-400 transition-colors">חידונים</Link></li>
+            <li><Link to="/stats" className="hover:text-gold-400 transition-colors">הפרופיל שלי</Link></li>
           </ul>
         </div>
 
