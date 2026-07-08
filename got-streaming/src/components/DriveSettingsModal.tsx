@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLibrary } from '../context/LibraryContext';
 import { CloseIcon, CrownIcon } from './Icons';
@@ -14,6 +14,15 @@ export default function DriveSettingsModal({ open, onClose }: Props) {
   const [apiKey, setApiKey] = useState(settings.apiKey);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // סנכרון הטופס עם ההגדרות העדכניות בכל פתיחה של החלון
+  useEffect(() => {
+    if (open) {
+      setFolderUrl(settings.folderUrl);
+      setApiKey(settings.apiKey);
+      setLocalError(null);
+    }
+  }, [open, settings]);
 
   const submit = async () => {
     setBusy(true);

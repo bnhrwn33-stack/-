@@ -6,6 +6,7 @@ import {
   downloadUrl, extractFolderId, previewUrl, scanDriveFolder, shareUrl, streamUrl,
 } from '../lib/drive';
 import * as store from '../lib/storage';
+import { DEFAULT_API_KEY, DEFAULT_DRIVE_FOLDER_URL } from '../lib/config';
 
 interface LibraryContextValue {
   seasons: Season[];
@@ -108,11 +109,17 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   }, []);
 
-  // חיבור אוטומטי בהעלאת האתר אם קיימות הגדרות שמורות
+  // חיבור אוטומטי בהעלאת האתר: הגדרות שמורות, או ברירת המחדל מ-config.ts
   useEffect(() => {
     const saved = store.getSettings();
-    if (saved.folderUrl && saved.apiKey) {
-      connectDrive(saved).catch(() => {/* השגיאה כבר נשמרה ב-state */});
+    const folderUrl = saved.folderUrl || DEFAULT_DRIVE_FOLDER_URL;
+    const apiKey = saved.apiKey || DEFAULT_API_KEY;
+    if (folderUrl && apiKey) {
+      connectDrive({ folderUrl, apiKey }).catch(() => {/* השגיאה כבר נשמרה ב-state */});
+    } else if (folderUrl && !saved.folderUrl) {
+      // שומרים את תיקיית ברירת המחדל כדי שתופיע מראש בחלון ההגדרות
+      store.saveSettings({ folderUrl, apiKey: '' });
+      setSettings({ folderUrl, apiKey: '' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
