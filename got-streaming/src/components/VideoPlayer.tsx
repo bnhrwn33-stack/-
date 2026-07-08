@@ -177,8 +177,25 @@ export default function VideoPlayer({ episode, onNext, onPrev }: Props) {
       <div className="relative aspect-video rounded-xl overflow-hidden glass flex flex-col items-center justify-center text-center p-8">
         <p className="text-2xl font-display gold-text font-bold mb-3">הפרק עדיין לא מחובר</p>
         <p className="text-steel-400 max-w-md leading-relaxed">
-          חבר את תיקיית ה-Google Drive שלך דרך כפתור ההגדרות למעלה, והפרק יופיע כאן אוטומטית.
+          לחץ על אייקון ההגדרות (⚙) למעלה ובחר את תיקיית הפרקים במחשב שלך — הפרק יופיע כאן אוטומטית.
         </p>
+      </div>
+    );
+  }
+
+  // קובץ מקומי בפורמט שהדפדפן לא מנגן (למשל MKV) — אין נגן iframe לגיבוי
+  const isLocal = source.streamUrl.startsWith('blob:');
+  if (failed && isLocal) {
+    return (
+      <div className="relative aspect-video rounded-xl overflow-hidden glass flex flex-col items-center justify-center text-center p-8">
+        <p className="text-xl font-display gold-text font-bold mb-3">הדפדפן לא מצליח לנגן את הקובץ הזה</p>
+        <p className="text-steel-400 max-w-md leading-relaxed text-sm">
+          הקובץ <span dir="ltr" className="text-steel-300">{source.fileName}</span> כנראה בפורמט MKV/AVI
+          שדפדפנים לא תומכים בו. המרה מהירה ל-MP4 (H.264) תפתור זאת — או הורד את הקובץ ונגן ב-VLC.
+        </p>
+        <a href={source.downloadUrl} download={source.fileName} className="btn-ghost mt-5 !px-5 !py-2 text-sm">
+          ⬇ הורדת הקובץ
+        </a>
       </div>
     );
   }

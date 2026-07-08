@@ -7,6 +7,12 @@ import {
 } from '../lib/drive';
 import * as store from '../lib/storage';
 import { DEFAULT_API_KEY, DEFAULT_DRIVE_FOLDER_URL } from '../lib/config';
+import {
+  clearDirHandle, ensurePermission, loadDirHandle, pickDirectory, saveDirHandle,
+  scanDirectoryHandle, scanFileList, supportsDirectoryPicker, type LocalScanResult,
+} from '../lib/local';
+
+export type LibrarySource = 'demo' | 'drive' | 'local';
 
 interface LibraryContextValue {
   seasons: Season[];
@@ -14,8 +20,13 @@ interface LibraryContextValue {
   error: string | null;
   connectedCount: number;
   settings: DriveSettings;
+  librarySource: LibrarySource;
+  localInfo: { matched: number; total: number; unsupported: number } | null;
   connectDrive: (settings: DriveSettings) => Promise<void>;
   disconnectDrive: () => void;
+  connectLocalDirectory: () => Promise<'ok' | 'cancelled' | 'blocked'>;
+  connectLocalFiles: (files: FileList | File[]) => void;
+  supportsDirectoryPicker: boolean;
   findEpisode: (season: number, episode: number) => Episode | undefined;
   nextEpisode: (ep: Episode) => Episode | undefined;
   prevEpisode: (ep: Episode) => Episode | undefined;
@@ -61,6 +72,8 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [sourcesByKey, setSourcesByKey] = useState<Map<string, VideoSource[]>>(new Map());
   const [status, setStatus] = useState<LibraryStatus>('demo');
   const [error, setError] = useState<string | null>(null);
+  const [librarySource, setLibrarySource] = useState<LibrarySource>('demo');
+  const [localInfo, setLocalInfo] = useState<{ matched: number; total: number; unsupported: number } | null>(null);
   const [progress, setProgress] = useState<Record<string, WatchProgress>>(() => store.getAllProgress());
   const [watched, setWatchedState] = useState<string[]>(() => store.getWatched());
   const [favorites, setFavoritesState] = useState<string[]>(() => store.getFavorites());
@@ -104,6 +117,8 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
       setSourcesByKey(map);
       store.saveSettings(s);
       setSettings(s);
+      setLibrarySource('drive');
+      setLocalInfo(null);
       setStatus('ready');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'שגיאה לא צפויה');
@@ -117,22 +132,102 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     const empty = { folderUrl: '', apiKey: '' };
     store.saveSettings(empty);
     setSettings(empty);
+    setLibrarySource('demo');
+    setLocalInfo(null);
     setStatus('demo');
     setError(null);
+    clearDirHandle();
   }, []);
 
-  // חיבור אוטומטי בהעלאת האתר: הגדרות שמורות, או ברירת המחדל מ-config.ts
-  useEffect(() => {
-    const saved = store.getSettings();
-    const folderUrl = saved.folderUrl || DEFAULT_DRIVE_FOLDER_URL;
-    const apiKey = saved.apiKey || DEFAULT_API_KEY;
-    if (folderUrl && apiKey) {
-      connectDrive({ folderUrl, apiKey }).catch(() => {/* השגיאה כבר נשמרה ב-state */});
-    } else if (folderUrl && !saved.folderUrl) {
-      // שומרים את תיקיית ברירת המחדל כדי שתופיע מראש בחלון ההגדרות
-      store.saveSettings({ folderUrl, apiKey: '' });
-      setSettings({ folderUrl, apiKey: '' });
+  /** מחיל תוצאות סריקה מקומית על הקטלוג */
+  const applyLocalResult = useCallback((result: LocalScanResult) => {
+    if (result.matched === 0) {
+      setError(
+        result.total === 0
+          ? 'לא נמצאו קובצי וידאו בתיקייה שנבחרה.'
+          : `נמצאו ${result.total} קבצים אך לא זוהו מספרי עונה/פרק בשמותיהם. נסה לשמות כמו S01E01 או "עונה 1 פרק 1".`,
+      );
+      setStatus(sourcesByKey.size > 0 ? 'ready' : 'error');
+      return;
     }
+    setSourcesByKey(result.sourcesByKey);
+    setLibrarySource('local');
+    setLocalInfo({ matched: result.matched, total: result.total, unsupported: result.unsupported });
+    setError(null);
+    setStatus('ready');
+  }, [sourcesByKey.size]);
+
+  /**
+   * בחירת תיקייה דרך File System Access API (Chrome/Edge) — נשמרת לחיבור אוטומטי.
+   * מחזיר 'blocked' כשה-API לא זמין/חסום, כדי שהקורא ייפול חזרה ל-input רגיל.
+   */
+  const connectLocalDirectory = useCallback(async (): Promise<'ok' | 'cancelled' | 'blocked'> => {
+    let handle: FileSystemDirectoryHandle | null;
+    try {
+      handle = await pickDirectory();
+    } catch {
+      return 'blocked';
+    }
+    if (!handle) return 'cancelled';
+    setStatus('loading');
+    setError(null);
+    try {
+      const result = await scanDirectoryHandle(handle);
+      applyLocalResult(result);
+      if (result.matched > 0) await saveDirHandle(handle);
+      return 'ok';
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'שגיאה בקריאת התיקייה');
+      setStatus(sourcesByKey.size > 0 ? 'ready' : 'error');
+      return 'ok';
+    }
+  }, [applyLocalResult, sourcesByKey.size]);
+
+  /** גיבוי אוניברסלי: קבצים מ-<input webkitdirectory> */
+  const connectLocalFiles = useCallback((files: FileList | File[]) => {
+    setStatus('loading');
+    setError(null);
+    try {
+      applyLocalResult(scanFileList(files));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'שגיאה בקריאת הקבצים');
+      setStatus(sourcesByKey.size > 0 ? 'ready' : 'error');
+    }
+  }, [applyLocalResult, sourcesByKey.size]);
+
+  // חיבור אוטומטי בהעלאת האתר: קודם תיקייה מקומית שמורה, אחר כך Drive, ואז ברירת מחדל
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // 1) תיקייה מקומית שנשמרה בביקור קודם (Chrome/Edge)
+      const handle = await loadDirHandle();
+      if (handle && !cancelled) {
+        const ok = await ensurePermission(handle);
+        if (ok && !cancelled) {
+          setStatus('loading');
+          try {
+            const result = await scanDirectoryHandle(handle);
+            if (!cancelled) applyLocalResult(result);
+            return;
+          } catch {
+            /* נמשיך ל-Drive */
+          }
+        }
+      }
+      if (cancelled) return;
+
+      // 2) הגדרות Drive שמורות / ברירת מחדל
+      const saved = store.getSettings();
+      const folderUrl = saved.folderUrl || DEFAULT_DRIVE_FOLDER_URL;
+      const apiKey = saved.apiKey || DEFAULT_API_KEY;
+      if (folderUrl && apiKey) {
+        connectDrive({ folderUrl, apiKey }).catch(() => {/* השגיאה כבר נשמרה */});
+      } else if (folderUrl && !saved.folderUrl) {
+        store.saveSettings({ folderUrl, apiKey: '' });
+        setSettings({ folderUrl, apiKey: '' });
+      }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -193,7 +288,10 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const value: LibraryContextValue = {
     seasons, status, error, connectedCount, settings,
-    connectDrive, disconnectDrive, findEpisode, nextEpisode, prevEpisode,
+    librarySource, localInfo,
+    connectDrive, disconnectDrive,
+    connectLocalDirectory, connectLocalFiles, supportsDirectoryPicker: supportsDirectoryPicker(),
+    findEpisode, nextEpisode, prevEpisode,
     progress, watched, favorites, reportProgress, toggleWatched, toggleFavorite,
     ratings, rateEpisode, comments, addComment, removeComment, profile, login, logout,
   };

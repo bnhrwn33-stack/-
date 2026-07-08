@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLibrary } from '../context/LibraryContext';
 import { CloseIcon, CrownIcon } from './Icons';
@@ -8,23 +8,30 @@ interface Props {
   onClose: () => void;
 }
 
+type Tab = 'local' | 'drive';
+
 export default function DriveSettingsModal({ open, onClose }: Props) {
-  const { settings, status, error, connectedCount, connectDrive, disconnectDrive } = useLibrary();
+  const {
+    settings, status, error, connectedCount, connectDrive, disconnectDrive,
+    connectLocalDirectory, connectLocalFiles, supportsDirectoryPicker, librarySource, localInfo,
+  } = useLibrary();
+  const [tab, setTab] = useState<Tab>('local');
   const [folderUrl, setFolderUrl] = useState(settings.folderUrl);
   const [apiKey, setApiKey] = useState(settings.apiKey);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // סנכרון הטופס עם ההגדרות העדכניות בכל פתיחה של החלון
   useEffect(() => {
     if (open) {
       setFolderUrl(settings.folderUrl);
       setApiKey(settings.apiKey);
       setLocalError(null);
+      setTab(librarySource === 'drive' ? 'drive' : 'local');
     }
-  }, [open, settings]);
+  }, [open, settings, librarySource]);
 
-  const submit = async () => {
+  const submitDrive = async () => {
     setBusy(true);
     setLocalError(null);
     try {
@@ -36,6 +43,35 @@ export default function DriveSettingsModal({ open, onClose }: Props) {
       setBusy(false);
     }
   };
+
+  const pickFolder = async () => {
+    setBusy(true);
+    setLocalError(null);
+    try {
+      const result = await connectLocalDirectory();
+      // ה-API חסום (למשל בתוך iframe של התצוגה) → נופלים חזרה לבורר הקבצים
+      if (result === 'blocked') fileInputRef.current?.click();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFilesPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length) {
+      connectLocalFiles(e.target.files);
+    }
+  };
+
+  const TabButton = ({ id, label, icon }: { id: Tab; label: string; icon: string }) => (
+    <button
+      onClick={() => setTab(id)}
+      className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${
+        tab === id ? 'bg-gold-500 text-ink-950 shadow-glow' : 'glass text-steel-300 hover:text-gold-400'
+      }`}
+    >
+      <span className="text-base leading-none">{icon}</span> {label}
+    </button>
+  );
 
   return (
     <AnimatePresence>
@@ -55,63 +91,103 @@ export default function DriveSettingsModal({ open, onClose }: Props) {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-lg glass rounded-2xl p-6 sm:p-8 my-12 shadow-card"
           >
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
                 <CrownIcon className="text-gold-500" width={26} height={26} />
-                <h2 className="text-xl font-bold text-white">חיבור ספריית Google Drive</h2>
+                <h2 className="text-xl font-bold text-white">חיבור ספריית הפרקים</h2>
               </div>
               <button onClick={onClose} className="p-1.5 text-steel-400 hover:text-white transition-colors" aria-label="סגירה">
                 <CloseIcon />
               </button>
             </div>
-            <p className="text-sm text-steel-400 leading-relaxed mt-2">
-              הדבק קישור לתיקיית ה-Drive שמכילה את קובצי הפרקים. המערכת תסרוק אותה (כולל תתי-תיקיות),
-              תזהה עונות ופרקים לפי שמות הקבצים (S01E01, "עונה 1 פרק 1"...) ותסדר הכול אוטומטית.
-            </p>
 
+            {/* מצב מחובר */}
             {status === 'ready' && (
-              <div className="mt-4 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 rounded-lg px-4 py-2.5">
-                מחוברים {connectedCount} פרקים מהספרייה שלך.
+              <div className="mb-4 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 rounded-lg px-4 py-2.5">
+                מחוברים {connectedCount} פרקים {librarySource === 'local' ? 'מהתיקייה במחשב שלך' : 'מ-Google Drive'}.
+                {localInfo && localInfo.unsupported > 0 && (
+                  <span className="block text-amber-400/90 text-xs mt-1">
+                    שים לב: {localInfo.unsupported} קבצים בפורמט שהדפדפן אולי לא ינגן (mkv/avi). מומלץ MP4.
+                  </span>
+                )}
               </div>
             )}
 
-            <label className="block mt-5">
-              <span className="text-sm font-medium text-steel-200">קישור לתיקיית Drive</span>
-              <input
-                value={folderUrl}
-                onChange={(e) => setFolderUrl(e.target.value)}
-                dir="ltr"
-                placeholder="https://drive.google.com/drive/folders/..."
-                className="mt-1.5 w-full glass rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-steel-500 outline-none focus:border-gold-600/60 transition-colors"
-              />
-            </label>
+            {/* טאבים */}
+            <div className="flex gap-2 mb-5">
+              <TabButton id="local" label="תיקייה במחשב" icon="💻" />
+              <TabButton id="drive" label="Google Drive" icon="☁️" />
+            </div>
 
-            <label className="block mt-4">
-              <span className="text-sm font-medium text-steel-200">מפתח Google API</span>
-              <input
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                dir="ltr"
-                type="password"
-                placeholder="AIza..."
-                className="mt-1.5 w-full glass rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-steel-500 outline-none focus:border-gold-600/60 transition-colors"
-              />
-            </label>
+            {tab === 'local' ? (
+              <div>
+                <p className="text-sm text-steel-400 leading-relaxed">
+                  בחר את התיקייה במחשב שמכילה את קובצי הפרקים. האתר יקרא אותם ישירות מהדיסק,
+                  יזהה עונות ופרקים לפי שמות הקבצים ויסדר הכול — <b className="text-steel-200">בלי אינטרנט, בלי מפתח, פרטי לגמרי</b>.
+                </p>
 
-            <details className="mt-4 text-sm text-steel-400">
-              <summary className="cursor-pointer text-gold-500 hover:text-gold-400 transition-colors select-none">
-                איך משיגים מפתח API? (חינם, 2 דקות)
-              </summary>
-              <ol className="mt-2 pr-5 space-y-1.5 list-decimal leading-relaxed">
-                <li>היכנס אל <span dir="ltr" className="text-steel-300">console.cloud.google.com</span> וצור פרויקט חדש.</li>
-                <li>בתפריט APIs & Services הפעל את <b>Google Drive API</b>.</li>
-                <li>תחת Credentials צור <b>API Key</b> והעתק אותו לכאן.</li>
-                <li>ודא שתיקיית הפרקים משותפת כ"כל מי שיש לו את הקישור" (Anyone with the link).</li>
-              </ol>
-              <p className="mt-2 text-xs text-steel-500">
-                המפתח נשמר מקומית בדפדפן שלך בלבד ומשמש רק לקריאת התיקייה שלך.
-              </p>
-            </details>
+                <button
+                  onClick={pickFolder}
+                  disabled={busy}
+                  className="btn-gold w-full mt-5 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  {busy && status === 'loading' ? 'קורא את התיקייה…' : '📂 בחר תיקיית פרקים'}
+                </button>
+
+                {/* גיבוי לדפדפנים ללא File System Access API */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  // @ts-expect-error — תכונות לא-סטנדרטיות לבחירת תיקייה
+                  webkitdirectory=""
+                  directory=""
+                  multiple
+                  className="hidden"
+                  onChange={onFilesPicked}
+                />
+
+                <div className="mt-4 text-xs text-steel-500 space-y-1.5 leading-relaxed">
+                  <p>✓ שמות נתמכים: <span dir="ltr">S01E01</span>, <span dir="ltr">1x01</span>, "עונה 1 פרק 3", או תיקיית "Season 1" עם הפרקים בפנים.</p>
+                  <p>✓ פורמט מומלץ: <b className="text-steel-300">MP4 (H.264)</b> — מתנגן בכל דפדפן. קובצי MKV לרוב לא מתנגנים בדפדפן.</p>
+                  {supportsDirectoryPicker
+                    ? <p>✓ הדפדפן שלך יזכור את התיקייה ויתחבר אליה אוטומטית בכל פתיחה.</p>
+                    : <p>ℹ הדפדפן שלך יבקש לבחור את התיקייה מחדש בכל פתיחה (מגבלת הדפדפן).</p>}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-steel-400 leading-relaxed">
+                  הדבק קישור לתיקיית Drive ומפתח API. המערכת תסרוק את התיקייה (כולל תתי-תיקיות) ותסדר הכול אוטומטית.
+                </p>
+
+                <label className="block mt-5">
+                  <span className="text-sm font-medium text-steel-200">קישור לתיקיית Drive</span>
+                  <input
+                    value={folderUrl}
+                    onChange={(e) => setFolderUrl(e.target.value)}
+                    dir="ltr"
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    className="mt-1.5 w-full glass rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-steel-500 outline-none focus:border-gold-600/60 transition-colors"
+                  />
+                </label>
+
+                <label className="block mt-4">
+                  <span className="text-sm font-medium text-steel-200">מפתח Google API (מתחיל ב-AIza)</span>
+                  <input
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    dir="ltr"
+                    type="password"
+                    placeholder="AIzaSy..."
+                    className="mt-1.5 w-full glass rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-steel-500 outline-none focus:border-gold-600/60 transition-colors"
+                  />
+                </label>
+
+                <button onClick={submitDrive} disabled={busy || !folderUrl || !apiKey} className="btn-gold w-full mt-5 disabled:opacity-40 disabled:pointer-events-none">
+                  {busy ? 'סורק את התיקייה…' : 'התחבר וסרוק'}
+                </button>
+              </div>
+            )}
 
             {(localError || (status === 'error' && error)) && (
               <div className="mt-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/25 rounded-lg px-4 py-2.5">
@@ -119,19 +195,14 @@ export default function DriveSettingsModal({ open, onClose }: Props) {
               </div>
             )}
 
-            <div className="mt-6 flex items-center gap-3">
-              <button onClick={submit} disabled={busy || !folderUrl || !apiKey} className="btn-gold flex-1 disabled:opacity-40 disabled:pointer-events-none">
-                {busy ? 'סורק את התיקייה…' : 'התחבר וסרוק'}
+            {status === 'ready' && (
+              <button
+                onClick={() => { disconnectDrive(); setFolderUrl(''); setApiKey(''); }}
+                className="btn-ghost w-full mt-3"
+              >
+                ניתוק הספרייה
               </button>
-              {status === 'ready' && (
-                <button
-                  onClick={() => { disconnectDrive(); setFolderUrl(''); setApiKey(''); }}
-                  className="btn-ghost"
-                >
-                  ניתוק
-                </button>
-              )}
-            </div>
+            )}
           </motion.div>
         </motion.div>
       )}
