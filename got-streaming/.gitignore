@@ -3,3 +3,5 @@ dist
 *.local
 .DS_Store
 tsconfig.tsbuildinfo
+dist-single
+got-preview-artifact.html
